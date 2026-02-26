@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #f8fafc;
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@layer components {
+
+  /* ---- Buttons ---- */
+  .btn-primary {
+    @apply bg-primary-800 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-primary-900 active:bg-primary-950 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary-800 px-4 py-2 rounded-lg font-medium text-sm border border-primary-200 hover:bg-primary-50 active:bg-primary-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:ring-offset-2;
+  }
+
+  .btn-accent {
+    @apply bg-accent-500 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-accent-600 active:bg-accent-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-accent-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-red-700 active:bg-red-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+  }
+
+  /* ---- Inputs ---- */
+  .input-field {
+    @apply w-full px-3 py-2 border border-dark-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors duration-200 placeholder:text-dark-400;
+  }
+
+  .select-field {
+    @apply w-full px-3 py-2 border border-dark-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors duration-200 appearance-none cursor-pointer;
+  }
+
+  /* ---- Cards ---- */
+  .card {
+    @apply bg-white rounded-xl border border-dark-100 shadow-sm;
+  }
+
+  .card-hover {
+    @apply card hover:shadow-md hover:border-primary-200 transition-all duration-200;
+  }
+
+  /* ---- Badges ---- */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-800;
+  }
+
+  .badge-success {
+    @apply badge bg-emerald-100 text-emerald-700;
+  }
+
+  .badge-warning {
+    @apply badge bg-amber-100 text-amber-700;
+  }
+
+  .badge-danger {
+    @apply badge bg-red-100 text-red-700;
+  }
+
+  .badge-accent {
+    @apply badge bg-accent-100 text-accent-700;
+  }
+
+  /* ---- Section Divider ---- */
+  .section-title {
+    @apply text-lg font-semibold text-primary-800 pb-2 border-b-2 border-accent-500;
+  }
+}
+
+/* ---- Print Styles ---- */
+@media print {
+
+  aside,
+  nav,
+  .mobile-toggle,
+  button,
+  .btn-primary,
+  .btn-secondary,
+  .btn-accent {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .card {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .badge {
+    border: 1px solid currentColor;
+  }
+}
+
+/* ---- Mobile Responsive Styles ---- */
+@media (max-width: 640px) {
+
+  /* Larger touch targets for buttons */
+  .btn-primary,
+  .btn-secondary,
+  .btn-accent,
+  .btn-danger {
+    min-height: 42px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  /* Responsive table wrapper */
+  .overflow-x-auto {
+    scroll-behavior: smooth;
+  }
+
+  /* Ensure tables don't break layout */
+  table {
+    font-size: 13px;
+  }
+
+  /* Stack action buttons on mobile */
+  .flex-wrap {
+    gap: 6px;
+  }
+
+  /* Better modal sizing */
+  .fixed.inset-0 .card,
+  .fixed.inset-0>div>div {
+    margin: 8px;
+    max-height: calc(100vh - 16px);
+  }
+
+  /* Reduce heading sizes */
+  h1 {
+    font-size: 1.25rem !important;
+  }
+
+  h2 {
+    font-size: 1.1rem !important;
+  }
+
+  /* Compact form grids */
+  .grid.grid-cols-1.md\:grid-cols-2 {
+    gap: 12px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-accent {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+}

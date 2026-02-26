@@ -1,0 +1,286 @@
+const User = require('../models/User');
+const Publication = require('../models/Publication');
+const Patent = require('../models/Patent');
+const Workshop = require('../models/Workshop');
+const Seminar = require('../models/Seminar');
+const Education = require('../models/Education');
+const Certification = require('../models/Certification');
+const logActivity = require('../utils/logActivity');
+const { saveToMemory, deleteFromMemory } = require('../middleware/upload');
+
+// @desc    Get all users (filtered by role/dept)
+// @route   GET /api/users
+exports.getUsers = async (req, res, next) => {
+    try {
+        let query = {};
+        const { department, role, search } = req.query;
+
+        // HOD can only see their department
+        if (req.user.role === 'hod') {
+            query.department = req.user.department;
+        } else if (department) {
+            query.department = department;
+        }
+
+        if (role) {
+            if (role.includes(',')) {
+                query.role = { $in: role.split(',').map(r => r.trim()) };
+            } else {
+                query.role = role;
+            }
+        }
+
+        if (search) {
+            query.name = { $regex: search, $options: 'i' };
+        }
+
+        const users = await User.find(query).sort({ createdAt: -1 });
+        res.json({ success: true, count: users.length, data: users });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get single user
+// @route   GET /api/users/:id
+exports.getUser = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // HOD can only view users in their department
+        if (req.user.role === 'hod' && user.department !== req.user.department) {
+            return res.status(403).json({ success: false, message: 'Not authorized to view this user' });
+        }
+
+        res.json({ success: true, data: user });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Update user
+// @route   PUT /api/users/:id
+exports.updateUser = async (req, res, next) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Faculty can only update themselves
+        if (req.user.role === 'faculty' && req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        // Remove fields that shouldn't be updated by non-admin
+        if (req.user.role !== 'admin') {
+            delete req.body.role;
+            delete req.body.password;
+        }
+
+        const user = await User.findByIdAndUpdate(req.params.id, req.body, {
+            new: true,
+            runValidators: true,
+        });
+
+        await logActivity({
+            userId: req.user._id,
+            role: req.user.role,
+            action: 'Update',
+            category: 'User',
+            targetId: user._id,
+            details: `Updated profile for ${user.name}`,
+        });
+
+        res.json({ success: true, data: user });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Delete user
+// @route   DELETE /api/users/:id
+exports.deleteUser = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        await logActivity({
+            userId: req.user._id,
+            role: req.user.role,
+            action: 'Delete',
+            category: 'User',
+            targetId: user._id,
+            details: `Deleted user ${user.name}`,
+        });
+
+        // Cascade delete all related data
+        await Promise.all([
+            Publication.deleteMany({ facultyId: req.params.id }),
+            Patent.deleteMany({ facultyId: req.params.id }),
+            Workshop.deleteMany({ facultyId: req.params.id }),
+            Seminar.deleteMany({ facultyId: req.params.id }),
+            Education.deleteMany({ facultyId: req.params.id }),
+            Certification.deleteMany({ facultyId: req.params.id }),
+        ]);
+
+        await User.findByIdAndDelete(req.params.id);
+
+        res.json({ success: true, message: 'User and all related data deleted' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Bulk delete users
+// @route   POST /api/users/bulk-delete
+exports.bulkDeleteUsers = async (req, res, next) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ success: false, message: 'Please provide an array of user IDs' });
+        }
+
+        // HOD can only delete faculty in their own department
+        if (req.user.role === 'hod') {
+            const users = await User.find({ _id: { $in: ids } }).lean();
+            const unauthorized = users.filter(u => u.department !== req.user.department || u.role !== 'faculty');
+            if (unauthorized.length > 0) {
+                return res.status(403).json({ success: false, message: 'HOD can only delete faculty in their own department' });
+            }
+        }
+
+        // Prevent deleting yourself
+        if (ids.includes(req.user._id.toString())) {
+            return res.status(400).json({ success: false, message: 'You cannot delete yourself' });
+        }
+
+        const users = await User.find({ _id: { $in: ids } }).lean();
+
+        for (const u of users) {
+            await logActivity({
+                userId: req.user._id,
+                role: req.user.role,
+                action: 'Delete',
+                category: 'User',
+                targetId: u._id,
+                details: `Bulk deleted user ${u.name}`,
+            });
+        }
+
+        // Cascade delete all related data for all users
+        await Promise.all([
+            Publication.deleteMany({ facultyId: { $in: ids } }),
+            Patent.deleteMany({ facultyId: { $in: ids } }),
+            Workshop.deleteMany({ facultyId: { $in: ids } }),
+            Seminar.deleteMany({ facultyId: { $in: ids } }),
+            Education.deleteMany({ facultyId: { $in: ids } }),
+            Certification.deleteMany({ facultyId: { $in: ids } }),
+        ]);
+
+        const result = await User.deleteMany({ _id: { $in: ids } });
+
+        res.json({ success: true, message: `${result.deletedCount} user(s) and all related data deleted` });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get all departments
+// @route   GET /api/users/departments
+exports.getDepartments = async (req, res, next) => {
+    try {
+        const departments = await User.distinct('department');
+        res.json({ success: true, data: departments });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Upload profile picture (file or base64 from camera)
+// @route   PUT /api/users/:id/profile-picture
+exports.uploadProfilePicture = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Only self or admin can change profile picture
+        if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        // Delete old picture if exists
+        if (user.profilePicture) {
+            deleteFromMemory(user.profilePicture);
+        }
+
+        let result;
+
+        if (req.file) {
+            // File upload
+            result = saveToMemory(req.file.buffer, 'profile-pictures', req.file.originalname);
+        } else if (req.body.image) {
+            // Base64 camera capture — decode and save
+            const base64Data = req.body.image.replace(/^data:image\/\w+;base64,/, '');
+            const buffer = Buffer.from(base64Data, 'base64');
+            result = saveToMemory(buffer, 'profile-pictures', 'camera_capture.jpg');
+        } else {
+            return res.status(400).json({ success: false, message: 'No image provided' });
+        }
+
+        const updated = await User.findByIdAndUpdate(
+            req.params.id,
+            { profilePicture: result.url, profilePicturePublicId: '' },
+            { new: true }
+        );
+
+        await logActivity({
+            userId: req.user._id,
+            role: req.user.role,
+            action: 'Update',
+            category: 'User',
+            targetId: updated._id,
+            details: `Updated profile picture for ${updated.name}`,
+        });
+
+        res.json({ success: true, data: updated });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Remove profile picture
+// @route   DELETE /api/users/:id/profile-picture
+exports.removeProfilePicture = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ success: false, message: 'Not authorized' });
+        }
+
+        if (user.profilePicture) {
+            deleteFromMemory(user.profilePicture);
+        }
+
+        const updated = await User.findByIdAndUpdate(
+            req.params.id,
+            { profilePicture: '', profilePicturePublicId: '' },
+            { new: true }
+        );
+
+        res.json({ success: true, data: updated });
+    } catch (error) {
+        next(error);
+    }
+};

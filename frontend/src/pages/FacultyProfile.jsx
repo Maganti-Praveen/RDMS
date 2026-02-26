@@ -1,0 +1,826 @@
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import API from '../api/axios';
+import Accordion from '../components/ui/Accordion';
+import Modal from '../components/ui/Modal';
+import toast from 'react-hot-toast';
+import {
+    User, GraduationCap, Award, BookOpen, Lightbulb,
+    Briefcase, Mic, Plus, Edit3, Trash2, Download,
+    Upload, ExternalLink, Printer
+} from 'lucide-react';
+import ProfilePicture from '../components/ui/ProfilePicture';
+import useAcademicYears from '../hooks/useAcademicYears';
+import ScoreCard from '../components/ui/ScoreCard';
+
+const FacultyProfile = () => {
+    const { id } = useParams();
+    const { user: currentUser } = useAuth();
+    const { academicYears } = useAcademicYears();
+    const [faculty, setFaculty] = useState(null);
+    const [education, setEducation] = useState([]);
+    const [certifications, setCertifications] = useState([]);
+    const [publications, setPublications] = useState([]);
+    const [patents, setPatents] = useState([]);
+    const [workshops, setWorkshops] = useState([]);
+    const [seminars, setSeminars] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [modalType, setModalType] = useState('');
+    const [editItem, setEditItem] = useState(null);
+    const [formData, setFormData] = useState({});
+    const [file, setFile] = useState(null);
+    const [yearFilter, setYearFilter] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [editProfileOpen, setEditProfileOpen] = useState(false);
+    const [profileForm, setProfileForm] = useState({});
+
+    const facultyId = id || currentUser?._id;
+    const canEdit = currentUser?._id === facultyId;
+
+    useEffect(() => {
+        if (facultyId) fetchAll();
+    }, [facultyId, yearFilter]);
+
+    const fetchAll = async () => {
+        setLoading(true);
+        try {
+            const params = yearFilter ? { academicYear: yearFilter } : {};
+            const [facRes, eduRes, certRes, pubRes, patRes, wsRes, semRes] = await Promise.all([
+                API.get(`/users/${facultyId}`),
+                API.get(`/education/${facultyId}`),
+                API.get(`/certifications/${facultyId}`),
+                API.get(`/publications/faculty/${facultyId}`, { params }),
+                API.get(`/patents/faculty/${facultyId}`, { params }),
+                API.get(`/workshops/faculty/${facultyId}`, { params }),
+                API.get(`/seminars/faculty/${facultyId}`, { params }),
+            ]);
+            setFaculty(facRes.data.data);
+            setEducation(eduRes.data.data);
+            setCertifications(certRes.data.data);
+            setPublications(pubRes.data.data);
+            setPatents(patRes.data.data);
+            setWorkshops(wsRes.data.data);
+            setSeminars(semRes.data.data);
+        } catch (err) {
+            toast.error('Failed to load profile');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const openAddModal = (type) => {
+        setModalType(type);
+        setEditItem(null);
+        setFormData({});
+        setFile(null);
+        setModalOpen(true);
+    };
+
+    const openEditModal = (type, item) => {
+        setModalType(type);
+        setEditItem(item);
+        setFormData({ ...item });
+        setFile(null);
+        setModalOpen(true);
+    };
+
+    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            const endpoints = {
+                education: '/education',
+                certification: '/certifications',
+                publication: '/publications',
+                patent: '/patents',
+                workshop: '/workshops',
+                seminar: '/seminars',
+            };
+            const base = endpoints[modalType];
+            const hasFile = ['certification', 'publication', 'patent', 'workshop'].includes(modalType);
+
+            let payload;
+            if (hasFile && file) {
+                payload = new FormData();
+                Object.keys(formData).forEach((key) => {
+                    if (key !== '_id' && key !== '__v' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'facultyId')
+                        payload.append(key, formData[key]);
+                });
+                payload.append('file', file);
+            } else {
+                payload = { ...formData };
+                delete payload._id;
+                delete payload.__v;
+                delete payload.createdAt;
+                delete payload.updatedAt;
+                delete payload.facultyId;
+            }
+
+            const config = hasFile && file ? { headers: { 'Content-Type': 'multipart/form-data' } } : {};
+
+            if (editItem) {
+                await API.put(`${base}/${editItem._id}`, payload, config);
+                toast.success('Updated successfully');
+            } else {
+                await API.post(`${base}/${facultyId}`, payload, config);
+                toast.success('Added successfully');
+            }
+
+            setModalOpen(false);
+            fetchAll();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Operation failed');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (type, itemId) => {
+        if (!window.confirm('Are you sure you want to delete this entry?')) return;
+        const endpoints = {
+            education: '/education',
+            certification: '/certifications',
+            publication: '/publications',
+            patent: '/patents',
+            workshop: '/workshops',
+            seminar: '/seminars',
+        };
+        try {
+            await API.delete(`${endpoints[type]}/${itemId}`);
+            toast.success('Deleted successfully');
+            fetchAll();
+        } catch (err) {
+            toast.error('Delete failed');
+        }
+    };
+
+    const handleDownloadPDF = async () => {
+        try {
+            const response = await API.get(`/export/pdf/${facultyId}`, { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${faculty?.name || 'profile'}_profile.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success('PDF downloaded');
+        } catch (err) {
+            toast.error('PDF export failed');
+        }
+    };
+
+    const openEditProfile = () => {
+        setProfileForm({
+            name: faculty.name || '',
+            mobileNumber: faculty.mobileNumber || '',
+            domain: faculty.domain || '',
+            officialEmail: faculty.officialEmail || '',
+            joiningDate: faculty.joiningDate ? faculty.joiningDate.split('T')[0] : '',
+            address: faculty.address || '',
+            orcidId: faculty.orcidId || '',
+            googleScholarUrl: faculty.googleScholarUrl || '',
+            scopusAuthorId: faculty.scopusAuthorId || '',
+            vidhwanId: faculty.vidhwanId || '',
+        });
+        setEditProfileOpen(true);
+    };
+
+    const handleProfileUpdate = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            const { data } = await API.put(`/users/${facultyId}`, profileForm);
+            setFaculty(data.data);
+            setEditProfileOpen(false);
+            toast.success('Profile updated successfully');
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Update failed');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const TableActions = ({ type, item }) => canEdit ? (
+        <div className="flex gap-1">
+            <button onClick={() => openEditModal(type, item)} className="p-1.5 text-dark-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all">
+                <Edit3 className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => handleDelete(type, item._id)} className="p-1.5 text-dark-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                <Trash2 className="w-3.5 h-3.5" />
+            </button>
+        </div>
+    ) : null;
+
+    const SectionHeader = ({ type }) => canEdit ? (
+        <button onClick={() => openAddModal(type)} className="btn-primary text-xs flex items-center gap-1.5 mt-3 mb-2">
+            <Plus className="w-3.5 h-3.5" /> Add
+        </button>
+    ) : null;
+
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '-';
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    if (!faculty) {
+        return <div className="text-center py-12 text-dark-400">Faculty not found</div>;
+    }
+
+    const renderModalForm = () => {
+        switch (modalType) {
+            case 'education':
+                return (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Degree *</label>
+                                <input name="degree" value={formData.degree || ''} onChange={handleChange} className="input-field" required /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">University *</label>
+                                <input name="university" value={formData.university || ''} onChange={handleChange} className="input-field" required /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Specialization</label>
+                                <input name="specialization" value={formData.specialization || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Year</label>
+                                <input name="year" value={formData.year || ''} onChange={handleChange} className="input-field" /></div>
+                        </div>
+                    </>
+                );
+            case 'certification':
+                return (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Title *</label>
+                                <input name="title" value={formData.title || ''} onChange={handleChange} className="input-field" required /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Issued By *</label>
+                                <input name="issuedBy" value={formData.issuedBy || ''} onChange={handleChange} className="input-field" required /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Date</label>
+                                <input name="date" type="date" value={formData.date?.split('T')[0] || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Credential ID</label>
+                                <input name="credentialId" value={formData.credentialId || ''} onChange={handleChange} className="input-field" /></div>
+                        </div>
+                        <div className="mt-4"><label className="block text-sm font-medium text-dark-700 mb-1">Upload Certificate (PDF/Image)</label>
+                            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files[0])} className="input-field" /></div>
+                    </>
+                );
+            case 'publication':
+                return (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2"><label className="block text-sm font-medium text-dark-700 mb-1">Title *</label>
+                                <input name="title" value={formData.title || ''} onChange={handleChange} className="input-field" required /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Journal Name</label>
+                                <input name="journalName" value={formData.journalName || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">ISSN</label>
+                                <input name="issn" value={formData.issn || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Volume</label>
+                                <input name="volume" value={formData.volume || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">DOI</label>
+                                <input name="doi" value={formData.doi || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Publication Type</label>
+                                <select name="publicationType" value={formData.publicationType || ''} onChange={handleChange} className="select-field">
+                                    <option value="">Select</option>
+                                    <option value="Journal">Journal</option><option value="Conference">Conference</option>
+                                    <option value="Book">Book</option><option value="Chapter">Chapter</option>
+                                </select></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Indexed In</label>
+                                <select name="indexedType" value={formData.indexedType || ''} onChange={handleChange} className="select-field">
+                                    <option value="">Select</option>
+                                    <option value="SCI">SCI</option><option value="Scopus">Scopus</option>
+                                    <option value="SEI">SEI</option><option value="UGC">UGC</option><option value="Other">Other</option>
+                                </select></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Academic Year *</label>
+                                <select name="academicYear" value={formData.academicYear || ''} onChange={handleChange} className="select-field" required>
+                                    <option value="">Select</option>
+                                    {academicYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                                </select></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Publication Date</label>
+                                <input name="publicationDate" type="date" value={formData.publicationDate?.split('T')[0] || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Research Domain</label>
+                                <select name="researchDomain" value={formData.researchDomain || ''} onChange={handleChange} className="select-field">
+                                    <option value="">Select Domain</option>
+                                    {['Artificial Intelligence', 'Machine Learning', 'Internet of Things', 'Cybersecurity', 'Renewable Energy', 'Data Science', 'Cloud Computing', 'Blockchain', 'Robotics', 'Signal Processing', 'VLSI Design', 'Power Systems', 'Embedded Systems', 'Computer Networks', 'Image Processing', 'Natural Language Processing', 'Other'].map(d => <option key={d} value={d}>{d}</option>)}
+                                </select></div>
+                        </div>
+                        <div className="mt-4"><label className="block text-sm font-medium text-dark-700 mb-1">Upload Paper (PDF)</label>
+                            <input type="file" accept=".pdf" onChange={(e) => setFile(e.target.files[0])} className="input-field" /></div>
+                    </>
+                );
+            case 'patent':
+                return (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2"><label className="block text-sm font-medium text-dark-700 mb-1">Title *</label>
+                                <input name="title" value={formData.title || ''} onChange={handleChange} className="input-field" required /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Patent Number</label>
+                                <input name="patentNumber" value={formData.patentNumber || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Status</label>
+                                <select name="status" value={formData.status || ''} onChange={handleChange} className="select-field">
+                                    <option value="">Select</option>
+                                    <option value="Filed">Filed</option><option value="Published">Published</option>
+                                    <option value="Granted">Granted</option><option value="Utility">Utility</option>
+                                </select></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Filing Date</label>
+                                <input name="filingDate" type="date" value={formData.filingDate?.split('T')[0] || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Grant Date</label>
+                                <input name="grantDate" type="date" value={formData.grantDate?.split('T')[0] || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Academic Year *</label>
+                                <select name="academicYear" value={formData.academicYear || ''} onChange={handleChange} className="select-field" required>
+                                    <option value="">Select</option>
+                                    {academicYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                                </select></div>
+                        </div>
+                        <div className="mt-4"><label className="block text-sm font-medium text-dark-700 mb-1">Upload Document (PDF)</label>
+                            <input type="file" accept=".pdf" onChange={(e) => setFile(e.target.files[0])} className="input-field" /></div>
+                    </>
+                );
+            case 'workshop':
+                return (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2"><label className="block text-sm font-medium text-dark-700 mb-1">Title *</label>
+                                <input name="title" value={formData.title || ''} onChange={handleChange} className="input-field" required /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Institution</label>
+                                <input name="institution" value={formData.institution || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Role</label>
+                                <select name="role" value={formData.role || ''} onChange={handleChange} className="select-field">
+                                    <option value="">Select</option>
+                                    <option value="Organized">Organized</option><option value="Attended">Attended</option>
+                                </select></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Date</label>
+                                <input name="date" type="date" value={formData.date?.split('T')[0] || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Academic Year *</label>
+                                <select name="academicYear" value={formData.academicYear || ''} onChange={handleChange} className="select-field" required>
+                                    <option value="">Select</option>
+                                    {academicYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                                </select></div>
+                        </div>
+                        <div className="mt-4"><label className="block text-sm font-medium text-dark-700 mb-1">Upload Certificate (PDF/Image)</label>
+                            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files[0])} className="input-field" /></div>
+                    </>
+                );
+            case 'seminar':
+                return (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2"><label className="block text-sm font-medium text-dark-700 mb-1">Topic *</label>
+                                <input name="topic" value={formData.topic || ''} onChange={handleChange} className="input-field" required /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Institution</label>
+                                <input name="institution" value={formData.institution || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Role</label>
+                                <select name="role" value={formData.role || ''} onChange={handleChange} className="select-field">
+                                    <option value="">Select</option>
+                                    <option value="Presented">Presented</option>
+                                    <option value="Attended">Attended</option>
+                                    <option value="Organized">Organized</option>
+                                    <option value="Chaired">Chaired</option>
+                                </select></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Date</label>
+                                <input name="date" type="date" value={formData.date?.split('T')[0] || ''} onChange={handleChange} className="input-field" /></div>
+                            <div><label className="block text-sm font-medium text-dark-700 mb-1">Academic Year *</label>
+                                <select name="academicYear" value={formData.academicYear || ''} onChange={handleChange} className="select-field" required>
+                                    <option value="">Select</option>
+                                    {academicYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                                </select></div>
+                        </div>
+                    </>
+                );
+            default: return null;
+        }
+    };
+
+    return (
+        <div>
+            {/* Profile Header */}
+            <div className="card p-6 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <ProfilePicture
+                            faculty={faculty}
+                            canEdit={canEdit}
+                            onUpdate={(updated) => setFaculty(updated)}
+                        />
+                        <div>
+                            <h1 className="text-xl font-bold text-dark-900">{faculty.name}</h1>
+                            <p className="text-dark-500 text-sm">{faculty.department} • {faculty.employeeId}</p>
+                            <span className={`badge mt-1 ${faculty.role === 'hod' ? 'badge-warning' : 'badge-primary'}`}>
+                                {faculty.role.toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <select
+                            value={yearFilter}
+                            onChange={(e) => setYearFilter(e.target.value)}
+                            className="select-field w-auto text-sm"
+                        >
+                            <option value="">All Years</option>
+                            {academicYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                        {canEdit && (
+                            <button onClick={openEditProfile} className="btn-secondary flex items-center gap-2 text-sm">
+                                <Edit3 className="w-4 h-4" /> Edit Profile
+                            </button>
+                        )}
+                        <button onClick={handleDownloadPDF} className="btn-secondary flex items-center gap-2 text-sm">
+                            <Download className="w-4 h-4" /> PDF
+                        </button>
+                        <button onClick={() => window.print()} className="btn-accent flex items-center gap-2 text-sm">
+                            <Printer className="w-4 h-4" /> Print
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Score Card */}
+            <ScoreCard facultyId={facultyId} />
+
+            {/* Sections */}
+            <div className="space-y-3">
+                {/* Basic Info */}
+                <Accordion title="Basic Information" icon={User} defaultOpen>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
+                        {[
+                            ['Email', faculty.email], ['Mobile', faculty.mobileNumber],
+                            ['Domain', faculty.domain], ['Joining Date', formatDate(faculty.joiningDate)],
+                            ['Official Email', faculty.officialEmail], ['Address', faculty.address],
+                        ].map(([label, val]) => (
+                            <div key={label}>
+                                <p className="text-xs text-dark-400 font-medium uppercase tracking-wider">{label}</p>
+                                <p className="text-sm text-dark-800 mt-0.5">{val || '-'}</p>
+                            </div>
+                        ))}
+                    </div>
+                    {/* Research IDs */}
+                    {(faculty.orcidId || faculty.googleScholarUrl || faculty.scopusAuthorId || faculty.vidhwanId) && (
+                        <div className="mt-4 pt-4 border-t border-dark-100">
+                            <p className="text-xs text-dark-400 font-medium uppercase tracking-wider mb-2">Research Profiles</p>
+                            <div className="flex flex-wrap gap-3">
+                                {faculty.orcidId && (
+                                    <a href={`https://orcid.org/${faculty.orcidId}`} target="_blank" rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-800 bg-primary-50 px-3 py-1.5 rounded-lg transition-all hover:bg-primary-100">
+                                        <ExternalLink className="w-3.5 h-3.5" /> ORCID: {faculty.orcidId}
+                                    </a>
+                                )}
+                                {faculty.googleScholarUrl && (
+                                    <a href={faculty.googleScholarUrl} target="_blank" rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-800 bg-primary-50 px-3 py-1.5 rounded-lg transition-all hover:bg-primary-100">
+                                        <ExternalLink className="w-3.5 h-3.5" /> Google Scholar
+                                    </a>
+                                )}
+                                {faculty.scopusAuthorId && (
+                                    <a href={`https://www.scopus.com/authid/detail.uri?authorId=${faculty.scopusAuthorId}`} target="_blank" rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-800 bg-primary-50 px-3 py-1.5 rounded-lg transition-all hover:bg-primary-100">
+                                        <ExternalLink className="w-3.5 h-3.5" /> Scopus: {faculty.scopusAuthorId}
+                                    </a>
+                                )}
+                                {faculty.vidhwanId && (
+                                    <a href={`https://vidwan.inflibnet.ac.in/profile/${faculty.vidhwanId}`} target="_blank" rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-800 bg-primary-50 px-3 py-1.5 rounded-lg transition-all hover:bg-primary-100">
+                                        <ExternalLink className="w-3.5 h-3.5" /> Vidwan: {faculty.vidhwanId}
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </Accordion>
+
+                {/* Education */}
+                <Accordion title="Education" icon={GraduationCap} count={education.length}>
+                    <SectionHeader type="education" />
+                    {education.length > 0 ? (
+                        <div className="overflow-x-auto mt-2">
+                            <table className="w-full text-sm">
+                                <thead><tr className="border-b border-dark-100">
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Degree</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">University</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Specialization</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Year</th>
+                                    {canEdit && <th className="py-2 px-3" />}
+                                </tr></thead>
+                                <tbody>
+                                    {education.map((e) => (
+                                        <tr key={e._id} className="border-b border-dark-50 hover:bg-dark-50/50">
+                                            <td className="py-2 px-3 text-dark-800">{e.degree}</td>
+                                            <td className="py-2 px-3 text-dark-600">{e.university}</td>
+                                            <td className="py-2 px-3 text-dark-600">{e.specialization || '-'}</td>
+                                            <td className="py-2 px-3 text-dark-600">{e.year || '-'}</td>
+                                            {canEdit && <td className="py-2 px-3"><TableActions type="education" item={e} /></td>}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : <p className="text-dark-400 text-sm mt-2">No education records</p>}
+                </Accordion>
+
+                {/* Certifications */}
+                <Accordion title="Certifications" icon={Award} count={certifications.length}>
+                    <SectionHeader type="certification" />
+                    {certifications.length > 0 ? (
+                        <div className="overflow-x-auto mt-2">
+                            <table className="w-full text-sm">
+                                <thead><tr className="border-b border-dark-100">
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Title</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Issued By</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Date</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">File</th>
+                                    {canEdit && <th className="py-2 px-3" />}
+                                </tr></thead>
+                                <tbody>
+                                    {certifications.map((c) => (
+                                        <tr key={c._id} className="border-b border-dark-50 hover:bg-dark-50/50">
+                                            <td className="py-2 px-3 text-dark-800">{c.title}</td>
+                                            <td className="py-2 px-3 text-dark-600">{c.issuedBy}</td>
+                                            <td className="py-2 px-3 text-dark-600">{formatDate(c.date)}</td>
+                                            <td className="py-2 px-3">{c.fileUrl ? <a href={c.fileUrl} target="_blank" rel="noreferrer" className="text-primary-600 hover:text-primary-700"><ExternalLink className="w-4 h-4" /></a> : '-'}</td>
+                                            {canEdit && <td className="py-2 px-3"><TableActions type="certification" item={c} /></td>}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : <p className="text-dark-400 text-sm mt-2">No certifications</p>}
+                </Accordion>
+
+                {/* Publications */}
+                <Accordion title="Publications" icon={BookOpen} count={publications.length}>
+                    <SectionHeader type="publication" />
+                    {publications.length > 0 ? (
+                        <div className="overflow-x-auto mt-2">
+                            <table className="w-full text-sm">
+                                <thead><tr className="border-b border-dark-100">
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Title</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Journal</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Type</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Indexed</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Year</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">File</th>
+                                    {canEdit && <th className="py-2 px-3" />}
+                                </tr></thead>
+                                <tbody>
+                                    {publications.map((p) => (
+                                        <tr key={p._id} className="border-b border-dark-50 hover:bg-dark-50/50">
+                                            <td className="py-2 px-3 text-dark-800 max-w-[200px] truncate">{p.title}</td>
+                                            <td className="py-2 px-3 text-dark-600">{p.journalName || '-'}</td>
+                                            <td className="py-2 px-3"><span className="badge-primary">{p.publicationType || '-'}</span></td>
+                                            <td className="py-2 px-3"><span className="badge-success">{p.indexedType || '-'}</span></td>
+                                            <td className="py-2 px-3 text-dark-600">{p.academicYear || '-'}</td>
+                                            <td className="py-2 px-3">{p.fileUrl ? <a href={p.fileUrl} target="_blank" rel="noreferrer" className="text-primary-600 hover:text-primary-700"><ExternalLink className="w-4 h-4" /></a> : '-'}</td>
+                                            {canEdit && <td className="py-2 px-3"><TableActions type="publication" item={p} /></td>}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : <p className="text-dark-400 text-sm mt-2">No publications</p>}
+                </Accordion>
+
+                {/* Patents */}
+                <Accordion title="Patents" icon={Lightbulb} count={patents.length}>
+                    <SectionHeader type="patent" />
+                    {patents.length > 0 ? (
+                        <div className="overflow-x-auto mt-2">
+                            <table className="w-full text-sm">
+                                <thead><tr className="border-b border-dark-100">
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Title</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Patent No.</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Status</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Filing</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Year</th>
+                                    {canEdit && <th className="py-2 px-3" />}
+                                </tr></thead>
+                                <tbody>
+                                    {patents.map((p) => (
+                                        <tr key={p._id} className="border-b border-dark-50 hover:bg-dark-50/50">
+                                            <td className="py-2 px-3 text-dark-800">{p.title}</td>
+                                            <td className="py-2 px-3 text-dark-600">{p.patentNumber || '-'}</td>
+                                            <td className="py-2 px-3"><span className="badge-warning">{p.status || '-'}</span></td>
+                                            <td className="py-2 px-3 text-dark-600">{formatDate(p.filingDate)}</td>
+                                            <td className="py-2 px-3 text-dark-600">{p.academicYear || '-'}</td>
+                                            {canEdit && <td className="py-2 px-3"><TableActions type="patent" item={p} /></td>}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : <p className="text-dark-400 text-sm mt-2">No patents</p>}
+                </Accordion>
+
+                {/* Workshops */}
+                <Accordion title="Workshops" icon={Briefcase} count={workshops.length}>
+                    <SectionHeader type="workshop" />
+                    {workshops.length > 0 ? (
+                        <div className="overflow-x-auto mt-2">
+                            <table className="w-full text-sm">
+                                <thead><tr className="border-b border-dark-100">
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Title</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Institution</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Role</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Date</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Year</th>
+                                    {canEdit && <th className="py-2 px-3" />}
+                                </tr></thead>
+                                <tbody>
+                                    {workshops.map((w) => (
+                                        <tr key={w._id} className="border-b border-dark-50 hover:bg-dark-50/50">
+                                            <td className="py-2 px-3 text-dark-800">{w.title}</td>
+                                            <td className="py-2 px-3 text-dark-600">{w.institution || '-'}</td>
+                                            <td className="py-2 px-3"><span className="badge-primary">{w.role || '-'}</span></td>
+                                            <td className="py-2 px-3 text-dark-600">{formatDate(w.date)}</td>
+                                            <td className="py-2 px-3 text-dark-600">{w.academicYear || '-'}</td>
+                                            {canEdit && <td className="py-2 px-3"><TableActions type="workshop" item={w} /></td>}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : <p className="text-dark-400 text-sm mt-2">No workshops</p>}
+                </Accordion>
+
+                {/* Seminars */}
+                <Accordion title="Seminars" icon={Mic} count={seminars.length}>
+                    <SectionHeader type="seminar" />
+                    {seminars.length > 0 ? (
+                        <div className="overflow-x-auto mt-2">
+                            <table className="w-full text-sm">
+                                <thead><tr className="border-b border-dark-100">
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Topic</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Institution</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Role</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Date</th>
+                                    <th className="text-left py-2 px-3 text-xs font-semibold text-dark-500">Year</th>
+                                    {canEdit && <th className="py-2 px-3" />}
+                                </tr></thead>
+                                <tbody>
+                                    {seminars.map((s) => (
+                                        <tr key={s._id} className="border-b border-dark-50 hover:bg-dark-50/50">
+                                            <td className="py-2 px-3 text-dark-800">{s.topic}</td>
+                                            <td className="py-2 px-3 text-dark-600">{s.institution || '-'}</td>
+                                            <td className="py-2 px-3 text-dark-600">{s.role || '-'}</td>
+                                            <td className="py-2 px-3 text-dark-600">{formatDate(s.date)}</td>
+                                            <td className="py-2 px-3 text-dark-600">{s.academicYear || '-'}</td>
+                                            {canEdit && <td className="py-2 px-3"><TableActions type="seminar" item={s} /></td>}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : <p className="text-dark-400 text-sm mt-2">No seminars</p>}
+                </Accordion>
+            </div>
+
+            {/* CRUD Modal */}
+            <Modal
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+                title={`${editItem ? 'Edit' : 'Add'} ${modalType.charAt(0).toUpperCase() + modalType.slice(1)}`}
+                size="lg"
+            >
+                <form onSubmit={handleSubmit}>
+                    {renderModalForm()}
+                    <div className="flex justify-end gap-3 mt-6">
+                        <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary">Cancel</button>
+                        <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
+                            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+                            {editItem ? 'Update' : 'Add'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Edit Profile Modal */}
+            <Modal
+                isOpen={editProfileOpen}
+                onClose={() => setEditProfileOpen(false)}
+                title="Edit Profile"
+                size="lg"
+            >
+                <form onSubmit={handleProfileUpdate}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-dark-700 mb-1">Full Name</label>
+                            <input
+                                name="name"
+                                value={profileForm.name || ''}
+                                onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                                className="input-field"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-dark-700 mb-1">Mobile Number</label>
+                            <input
+                                name="mobileNumber"
+                                value={profileForm.mobileNumber || ''}
+                                onChange={(e) => setProfileForm({ ...profileForm, mobileNumber: e.target.value })}
+                                className="input-field"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-dark-700 mb-1">Domain / Specialization</label>
+                            <input
+                                name="domain"
+                                value={profileForm.domain || ''}
+                                onChange={(e) => setProfileForm({ ...profileForm, domain: e.target.value })}
+                                className="input-field"
+                                placeholder="e.g., Machine Learning"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-dark-700 mb-1">Official Email</label>
+                            <input
+                                name="officialEmail"
+                                type="email"
+                                value={profileForm.officialEmail || ''}
+                                onChange={(e) => setProfileForm({ ...profileForm, officialEmail: e.target.value })}
+                                className="input-field"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-dark-700 mb-1">Joining Date</label>
+                            <input
+                                name="joiningDate"
+                                type="date"
+                                value={profileForm.joiningDate || ''}
+                                onChange={(e) => setProfileForm({ ...profileForm, joiningDate: e.target.value })}
+                                className="input-field"
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium text-dark-700 mb-1">Address</label>
+                        <textarea
+                            name="address"
+                            value={profileForm.address || ''}
+                            onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
+                            className="input-field"
+                            rows={2}
+                        />
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-dark-100">
+                        <p className="text-sm font-semibold text-dark-700 mb-3">Research Profile Links</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-dark-600 mb-1">ORCID ID</label>
+                                <input
+                                    name="orcidId"
+                                    value={profileForm.orcidId || ''}
+                                    onChange={(e) => setProfileForm({ ...profileForm, orcidId: e.target.value })}
+                                    className="input-field"
+                                    placeholder="0000-0000-0000-0000"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-dark-600 mb-1">Google Scholar URL</label>
+                                <input
+                                    name="googleScholarUrl"
+                                    value={profileForm.googleScholarUrl || ''}
+                                    onChange={(e) => setProfileForm({ ...profileForm, googleScholarUrl: e.target.value })}
+                                    className="input-field"
+                                    placeholder="https://scholar.google.com/..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-dark-600 mb-1">Scopus Author ID</label>
+                                <input
+                                    name="scopusAuthorId"
+                                    value={profileForm.scopusAuthorId || ''}
+                                    onChange={(e) => setProfileForm({ ...profileForm, scopusAuthorId: e.target.value })}
+                                    className="input-field"
+                                    placeholder="e.g., 57200012345"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-dark-600 mb-1">Vidwan ID</label>
+                                <input
+                                    name="vidhwanId"
+                                    value={profileForm.vidhwanId || ''}
+                                    onChange={(e) => setProfileForm({ ...profileForm, vidhwanId: e.target.value })}
+                                    className="input-field"
+                                    placeholder="e.g., 12345"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-3 mt-6">
+                        <button type="button" onClick={() => setEditProfileOpen(false)} className="btn-secondary">Cancel</button>
+                        <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
+                            {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+        </div>
+    );
+};
+
+export default FacultyProfile;
