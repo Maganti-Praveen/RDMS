@@ -284,3 +284,50 @@ exports.removeProfilePicture = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Admin resets password for a faculty/HOD user
+// @route   PUT /api/users/:id/reset-password
+exports.resetPassword = async (req, res, next) => {
+    try {
+        const { newPassword } = req.body;
+
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+        }
+
+        const targetUser = await User.findById(req.params.id).select('+password');
+        if (!targetUser) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Admin cannot reset another admin's password (security guard)
+        if (targetUser.role === 'admin' && req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ success: false, message: 'Cannot reset another admin\'s password' });
+        }
+
+        // HOD can only reset faculty passwords in their own department
+        if (req.user.role === 'hod') {
+            if (targetUser.role !== 'faculty' || targetUser.department !== req.user.department) {
+                return res.status(403).json({ success: false, message: 'HODs can only reset faculty passwords in their own department' });
+            }
+        }
+
+        // Hash and save the new password (triggers pre-save hook)
+        targetUser.password = newPassword;
+        await targetUser.save();
+
+        await logActivity({
+            userId: req.user._id,
+            role: req.user.role,
+            action: 'Update',
+            category: 'User',
+            targetId: targetUser._id,
+            details: `Reset password for ${targetUser.name}`,
+        });
+
+        res.json({ success: true, message: `Password reset successfully for ${targetUser.name}` });
+    } catch (error) {
+        next(error);
+    }
+};
+

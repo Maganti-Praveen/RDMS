@@ -105,36 +105,122 @@ body {
 /* ---- Print Styles ---- */
 @media print {
 
+  /* Hide all navigation/action UI */
   aside,
   nav,
   .mobile-toggle,
   button,
   .btn-primary,
   .btn-secondary,
-  .btn-accent {
+  .btn-accent,
+  .btn-danger,
+  [title="Reset Password"],
+  [class*="NotificationBell"],
+  [class*="GlobalSearch"] {
     display: none !important;
   }
 
-  body {
-    background: white !important;
+  /* Page setup */
+  @page {
+    size: A4 portrait;
+    margin: 15mm 15mm 20mm 15mm;
   }
 
+  html, body {
+    background: white !important;
+    font-size: 11pt;
+    color: #1a1a2e;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Layout full-width */
+  main, #root > div, .flex {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Professional print header injected above first card */
+  .card:first-of-type {
+    border-top: 6px solid #1e3a5f !important;
+    padding-top: 12px !important;
+  }
+
+  /* Cards — clean borders */
   .card {
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid #d1d5db !important;
     box-shadow: none !important;
+    border-radius: 4px !important;
+    margin-bottom: 14pt !important;
     page-break-inside: avoid;
   }
 
-  main {
-    margin: 0 !important;
-    padding: 0 !important;
+  /* Tables */
+  table {
     width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9pt !important;
   }
 
-  .badge {
-    border: 1px solid currentColor;
+  thead tr {
+    background-color: #1e3a5f !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  th, td {
+    border: 1px solid #e5e7eb !important;
+    padding: 4pt 6pt !important;
+    word-break: break-word;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: #f7fafc !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Section headers */
+  h1, h2, h3 {
+    color: #1e3a5f !important;
+    page-break-after: avoid;
+  }
+
+  /* Badges — add border so they print without color background */
+  .badge, [class*="badge"] {
+    border: 1px solid currentColor !important;
+    background: transparent !important;
+    padding: 1pt 4pt !important;
+  }
+
+  /* Accordions — always open for print */
+  [class*="Accordion"] > div,
+  details {
+    display: block !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Page break helpers */
+  .print-break-before { page-break-before: always; }
+  .print-avoid-break  { page-break-inside: avoid; }
+
+  /* Footer */
+  body::after {
+    content: "RDMS — Faculty Research Profile — " attr(data-name) " — Printed " attr(data-date);
+    display: block;
+    font-size: 8pt;
+    color: #6b7280;
+    text-align: center;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 16pt;
+    padding-top: 4pt;
   }
 }
+
 
 /* ---- Mobile Responsive Styles ---- */
 @media (max-width: 640px) {

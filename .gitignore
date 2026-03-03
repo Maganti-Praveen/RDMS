@@ -11,6 +11,9 @@ package-lock.json
 frontend/dist/
 backend/dist/
 
+# Uploaded files (local disk storage)
+
+
 # IDE
 .vscode/
 .idea/

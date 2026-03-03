@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../api/axios';
-import { Search, Download, Eye, Trash2, CheckSquare, Square, XCircle } from 'lucide-react';
+import { Search, Download, Eye, Trash2, CheckSquare, Square, XCircle, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ResetPasswordModal from '../components/ui/ResetPasswordModal';
 
 const FacultyList = () => {
     const { user } = useAuth();
@@ -18,6 +19,8 @@ const FacultyList = () => {
     // Confirm Dialog state
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmConfig, setConfirmConfig] = useState({ title: '', message: '', onConfirm: () => { } });
+    // Reset password modal state
+    const [resetTarget, setResetTarget] = useState(null);
 
     const canDelete = user.role === 'admin' || user.role === 'hod';
 
@@ -285,6 +288,15 @@ const FacultyList = () => {
                                                 </Link>
                                                 {canDelete && (
                                                     <button
+                                                        onClick={() => setResetTarget(f)}
+                                                        className="p-2 text-dark-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                                        title="Reset Password"
+                                                    >
+                                                        <KeyRound className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
                                                         onClick={() => handleDelete(f._id)}
                                                         className="p-2 text-dark-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                     >
@@ -359,6 +371,15 @@ const FacultyList = () => {
                                         </Link>
                                         {canDelete && (
                                             <button
+                                                onClick={() => setResetTarget(f)}
+                                                className="p-2 text-dark-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                                title="Reset Password"
+                                            >
+                                                <KeyRound className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                        {canDelete && (
+                                            <button
                                                 onClick={() => handleDelete(f._id)}
                                                 className="p-2 text-dark-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                             >
@@ -382,6 +403,14 @@ const FacultyList = () => {
                 message={confirmConfig.message}
                 loading={deleting}
             />
+
+            {/* Reset Password Modal */}
+            {resetTarget && (
+                <ResetPasswordModal
+                    user={resetTarget}
+                    onClose={() => setResetTarget(null)}
+                />
+            )}
         </div>
     );
 };

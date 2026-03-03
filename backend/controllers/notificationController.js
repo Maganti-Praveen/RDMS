@@ -47,3 +47,54 @@ exports.createNotification = async (userId, message, category, link = '') => {
         console.error('Notification error:', err.message);
     }
 };
+
+// @desc    Admin/HOD sends a broadcast notification to users
+// @route   POST /api/notifications/send
+exports.sendBroadcast = async (req, res, next) => {
+    try {
+        const { title, message, target, department, userIds } = req.body;
+
+        if (!message || message.trim().length === 0) {
+            return res.status(400).json({ success: false, message: 'Message is required' });
+        }
+
+        const User = require('../models/User');
+        let query = { role: { $in: ['faculty', 'hod'] } };
+
+        if (target === 'department' && department) {
+            query.department = department;
+        } else if (target === 'specific' && Array.isArray(userIds) && userIds.length > 0) {
+            query = { _id: { $in: userIds } };
+        }
+        // HOD can only send to their own department
+        if (req.user.role === 'hod') {
+            query.department = req.user.department;
+        }
+
+        const recipients = await User.find(query).select('_id').lean();
+
+        if (recipients.length === 0) {
+            return res.status(400).json({ success: false, message: 'No recipients found' });
+        }
+
+        const fullMessage = title ? `${title}: ${message}` : message;
+
+        const notifications = recipients.map(r => ({
+            userId: r._id,
+            message: fullMessage,
+            type: 'info',
+            category: 'General',
+            link: '',
+        }));
+
+        await Notification.insertMany(notifications);
+
+        res.json({
+            success: true,
+            message: `Notification sent to ${recipients.length} user(s)`,
+            count: recipients.length,
+        });
+    } catch (error) {
+        next(error);
+    }
+};

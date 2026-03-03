@@ -73,13 +73,35 @@ exports.bulkRegister = async (req, res, next) => {
         }
 
         const XLSX = require('xlsx');
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
 
         if (!rows.length) {
             return res.status(400).json({ success: false, message: 'Excel file is empty' });
         }
+
+        // Helper: convert any date representation to a JS Date (or undefined)
+        const parseDate = (val) => {
+            if (!val || val === '') return undefined;
+            // xlsx with cellDates:true returns Date objects directly
+            if (val instanceof Date) return isNaN(val.getTime()) ? undefined : val;
+            const str = String(val).trim();
+            if (!str || str === '0') return undefined;
+            // Standard ISO / DD-MM-YYYY / MM/DD/YYYY strings
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) return d;
+            // Excel serial number fallback:  days since 1900-01-00
+            const serial = parseFloat(str);
+            if (!isNaN(serial) && serial > 1) {
+                // Excel epoch is Dec 30, 1899 (accounting for the leap-year bug)
+                const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+                const ms = Math.round((serial - Math.floor(serial)) * 86400000);
+                const d2 = new Date(excelEpoch.getTime() + Math.floor(serial) * 86400000 + ms);
+                if (!isNaN(d2.getTime())) return d2;
+            }
+            return undefined;
+        };
 
         const results = { created: [], skipped: [], errors: [] };
         const requiredFields = ['name', 'employeeId', 'email', 'password', 'department'];
@@ -92,17 +114,18 @@ exports.bulkRegister = async (req, res, next) => {
             const data = {};
             Object.keys(row).forEach(key => {
                 const k = key.trim().toLowerCase().replace(/\s+/g, '');
-                if (k === 'name' || k === 'fullname') data.name = String(row[key]).trim();
-                else if (k === 'employeeid' || k === 'empid') data.employeeId = String(row[key]).trim();
-                else if (k === 'email') data.email = String(row[key]).trim().toLowerCase();
-                else if (k === 'password') data.password = String(row[key]).trim();
-                else if (k === 'role') data.role = String(row[key]).trim().toLowerCase();
-                else if (k === 'department' || k === 'dept') data.department = String(row[key]).trim();
-                else if (k === 'mobilenumber' || k === 'mobile' || k === 'phone') data.mobileNumber = String(row[key]).trim();
-                else if (k === 'domain' || k === 'specialization') data.domain = String(row[key]).trim();
-                else if (k === 'officialemail') data.officialEmail = String(row[key]).trim();
-                else if (k === 'joiningdate') data.joiningDate = String(row[key]).trim();
-                else if (k === 'address') data.address = String(row[key]).trim();
+                const v = row[key];
+                if (k === 'name' || k === 'fullname') data.name = String(v).trim();
+                else if (k === 'employeeid' || k === 'empid') data.employeeId = String(v).trim();
+                else if (k === 'email') data.email = String(v).trim().toLowerCase();
+                else if (k === 'password') data.password = String(v).trim();
+                else if (k === 'role') data.role = String(v).trim().toLowerCase();
+                else if (k === 'department' || k === 'dept') data.department = String(v).trim();
+                else if (k === 'mobilenumber' || k === 'mobile' || k === 'phone') data.mobileNumber = String(v).trim();
+                else if (k === 'domain' || k === 'specialization') data.domain = String(v).trim();
+                else if (k === 'officialemail') data.officialEmail = String(v).trim();
+                else if (k === 'joiningdate') data.joiningDate = parseDate(v);
+                else if (k === 'address') data.address = String(v).trim();
             });
 
             if (!data.role || !['faculty', 'hod'].includes(data.role)) data.role = 'faculty';

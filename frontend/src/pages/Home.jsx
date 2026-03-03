@@ -17,6 +17,8 @@ const Home = () => {
     const [recentCerts, setRecentCerts] = useState([]);
     const [education, setEducation] = useState([]);
     const [loading, setLoading] = useState(true);
+    // Real totals (separate from the sliced « recent » lists shown below)
+    const [totals, setTotals] = useState({ pubs: 0, patents: 0, workshops: 0, seminars: 0, certs: 0 });
 
     const facultyId = user?._id;
 
@@ -35,11 +37,25 @@ const Home = () => {
                 API.get(`/certifications/${facultyId}`),
                 API.get(`/education/${facultyId}`),
             ]);
-            setRecentPubs(pubRes.data.data.slice(0, 5));
-            setRecentPatents(patRes.data.data.slice(0, 5));
-            setRecentWorkshops(wsRes.data.data.slice(0, 3));
-            setRecentSeminars(semRes.data.data.slice(0, 3));
-            setRecentCerts(certRes.data.data.slice(0, 3));
+            const allPubs = pubRes.data.data;
+            const allPatents = patRes.data.data;
+            const allWorkshops = wsRes.data.data;
+            const allSeminars = semRes.data.data;
+            const allCerts = certRes.data.data;
+            // Store real totals first
+            setTotals({
+                pubs: allPubs.length,
+                patents: allPatents.length,
+                workshops: allWorkshops.length,
+                seminars: allSeminars.length,
+                certs: allCerts.length,
+            });
+            // Then slice for the recent display lists
+            setRecentPubs(allPubs.slice(0, 5));
+            setRecentPatents(allPatents.slice(0, 5));
+            setRecentWorkshops(allWorkshops.slice(0, 3));
+            setRecentSeminars(allSeminars.slice(0, 3));
+            setRecentCerts(allCerts.slice(0, 3));
             setEducation(eduRes.data.data);
         } catch (err) {
             console.error(err);
@@ -50,7 +66,7 @@ const Home = () => {
 
     const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 
-    const totalItems = recentPubs.length + recentPatents.length + recentWorkshops.length + recentSeminars.length + recentCerts.length;
+    const totalItems = totals.pubs + totals.patents + totals.workshops + totals.seminars + totals.certs;
 
     if (loading) {
         return (
@@ -84,11 +100,11 @@ const Home = () => {
             {/* Quick Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
                 {[
-                    { label: 'Publications', count: recentPubs.length, icon: BookOpen, color: 'text-emerald-600 bg-emerald-50' },
-                    { label: 'Patents', count: recentPatents.length, icon: Lightbulb, color: 'text-amber-600 bg-amber-50' },
-                    { label: 'Workshops', count: recentWorkshops.length, icon: Briefcase, color: 'text-rose-600 bg-rose-50' },
-                    { label: 'Seminars', count: recentSeminars.length, icon: Mic, color: 'text-violet-600 bg-violet-50' },
-                    { label: 'Certifications', count: recentCerts.length, icon: Award, color: 'text-sky-600 bg-sky-50' },
+                    { label: 'Publications', count: totals.pubs, icon: BookOpen, color: 'text-emerald-600 bg-emerald-50' },
+                    { label: 'Patents', count: totals.patents, icon: Lightbulb, color: 'text-amber-600 bg-amber-50' },
+                    { label: 'Workshops', count: totals.workshops, icon: Briefcase, color: 'text-rose-600 bg-rose-50' },
+                    { label: 'Seminars', count: totals.seminars, icon: Mic, color: 'text-violet-600 bg-violet-50' },
+                    { label: 'Certifications', count: totals.certs, icon: Award, color: 'text-sky-600 bg-sky-50' },
                     { label: 'Education', count: education.length, icon: GraduationCap, color: 'text-primary-600 bg-primary-50' },
                 ].map((stat) => (
                     <div key={stat.label} className="card p-4 flex items-center gap-3">

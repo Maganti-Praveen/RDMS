@@ -91,9 +91,9 @@ const App = () => {
                 </ProtectedRoute>
             } />
 
-            {/* Faculty & HOD profile */}
+            {/* All roles can view their own profile */}
             <Route path="/my-profile" element={
-                <ProtectedRoute roles={['faculty', 'hod']}>
+                <ProtectedRoute roles={['faculty', 'hod', 'admin']}>
                     <Layout><MyProfile /></Layout>
                 </ProtectedRoute>
             } />

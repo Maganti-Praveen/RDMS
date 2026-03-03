@@ -169,7 +169,7 @@ const Dashboard = () => {
                         <StatCard title="Patents" value={stats?.totalPatents || 0} icon={Lightbulb} color="amber" linkTo="/explore?tab=patents" />
                         <StatCard title="Workshops" value={stats?.totalWorkshops || 0} icon={Award} color="rose" linkTo="/explore?tab=workshops" />
                         <StatCard title="Seminars" value={stats?.totalSeminars || 0} icon={Mic} color="violet" linkTo="/explore?tab=seminars" />
-                        <StatCard title="Certifications" value={stats?.totalCertifications || 0} icon={FileCheck} color="sky" linkTo="/explore?tab=publications" />
+                        <StatCard title="Certifications" value={stats?.totalCertifications || 0} icon={FileCheck} color="sky" linkTo="/explore?tab=certifications" />
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

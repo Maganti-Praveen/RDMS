@@ -1,4 +1,4 @@
-const ExcelJS = require('exceljs');
+﻿const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const User = require('../models/User');
 const Education = require('../models/Education');
@@ -131,13 +131,9 @@ exports.exportExcel = async (req, res, next) => {
 exports.exportPDF = async (req, res, next) => {
     try {
         const user = await User.findById(req.params.facultyId);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-
-        if (req.user.role === 'hod' && user.department !== req.user.department) {
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+        if (req.user.role === 'hod' && user.department !== req.user.department)
             return res.status(403).json({ success: false, message: 'Not authorized' });
-        }
 
         const [education, certifications, publications, patents, workshops, seminars] = await Promise.all([
             Education.find({ facultyId: user._id }),
@@ -148,169 +144,366 @@ exports.exportPDF = async (req, res, next) => {
             Seminar.find({ facultyId: user._id }),
         ]);
 
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
-
+        const doc = new PDFDocument({ margin: 0, size: 'A4', autoFirstPage: true });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=${user.name.replace(/\s/g, '_')}_profile.pdf`);
         doc.pipe(res);
 
-        const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN') : '-';
+        // â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        const PAGE_W = doc.page.width;   // 595.28
+        const PAGE_H = doc.page.height;  // 841.89
+        const L = 40;               // left margin
+        const R = PAGE_W - 40;      // right edge
+        const CW = R - L;            // content width  515
+        const NAVY = '#1e3a5f';
+        const NAVY2 = '#254a7a';
+        const BLUE_LT = '#aed6f1';
+        const WHITE = '#ffffff';
+        const LIGHT = '#f0f4f8';
+        const ALTROW = '#f7fafc';
+        const DARK = '#2c3e50';
+        const GREY = '#7f8c8d';
+        const RED = '#c0392b';
+        const BODYBOT = PAGE_H - 50;      // last safe y before footer
 
-        // ---- Header ----
-        doc.fontSize(20).font('Helvetica-Bold').fillColor('#16213e')
-            .text(user.name, { align: 'center' });
-        doc.fontSize(11).font('Helvetica').fillColor('#555')
-            .text(`${user.department} Department  |  Employee ID: ${user.employeeId}`, { align: 'center' });
-        doc.moveDown(1.5);
+        const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+        const safe = (v) => (v === null || v === undefined || v === '') ? '-' : String(v);
 
-        // ---- Helper: Section Title ----
-        const sectionTitle = (title) => {
-            doc.moveDown(0.5);
-            doc.fontSize(14).font('Helvetica-Bold').fillColor('#0f3460').text(title);
-            doc.moveTo(doc.x, doc.y).lineTo(doc.x + 500, doc.y).strokeColor('#e94560').lineWidth(2).stroke();
-            doc.moveDown(0.5);
+        let pageNum = 1;
+
+        // â”€â”€ Letterhead â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        const drawHeader = () => {
+            // Taller navy bar so logo has breathing room
+            doc.rect(0, 0, PAGE_W, 95).fill(NAVY);
+
+            // Logo — fit into a wider horizontal area so it's clearly visible
+            try {
+                const path = require('path');
+                const fs = require('fs');
+                const logo = path.join(__dirname, '../../frontend/src/assets/rcee.png');
+                if (fs.existsSync(logo)) {
+                    // fit: [W, H] scales proportionally to fill width=80, max height=72
+                    doc.image(logo, L, 11, { fit: [80, 72], align: 'center', valign: 'center' });
+                }
+            } catch (_) { }
+
+            const tx = L + 92;   // shifted right to give logo 80px + 12px gap
+            doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(14)
+                .text('R.C.E.E. - Research & Department Management System', tx, 16, { width: CW - 98 });
+            doc.font('Helvetica').fontSize(9).fillColor(BLUE_LT)
+                .text('Faculty Research Profile  |  Confidential Document', tx, 38, { width: CW - 98 });
+            const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+            doc.fontSize(8).fillColor(BLUE_LT)
+                .text(`Generated: ${today}`, tx, 54, { width: CW - 98 });
+
+            doc.y = 100;
         };
 
-        // ---- Helper: Table Row ----
-        const tableRow = (cols, isHeader = false) => {
-            const startX = doc.x;
-            const startY = doc.y;
-            const colWidth = 500 / cols.length;
+        // â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        const drawFooter = () => {
+            const fy = PAGE_H - 32;
+            doc.rect(0, fy, PAGE_W, 32).fill(NAVY);
+            doc.fillColor(BLUE_LT).font('Helvetica').fontSize(7.5)
+                .text(`RDMS  |  ${user.name}  |  ${user.department}  |  ${user.employeeId}`, L, fy + 10, { width: CW - 60 });
+            doc.text(`Page ${pageNum}`, 0, fy + 10, { width: PAGE_W - L, align: 'right' });
+        };
 
-            if (isHeader) {
-                doc.rect(startX, startY, 500, 18).fill('#16213e');
-                doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(9);
-            } else {
-                doc.fillColor('#1a1a2e').font('Helvetica').fontSize(9);
+        // â”€â”€ New page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        const newPage = () => {
+            drawFooter();
+            pageNum++;
+            doc.addPage();
+            drawHeader();
+        };
+
+        const checkY = (needed = 30) => { if (doc.y + needed > BODYBOT) newPage(); };
+
+        // â”€â”€ Section heading bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        const section = (title) => {
+            checkY(40);
+            doc.moveDown(0.4);
+            const sy = doc.y;
+            doc.rect(L, sy, CW, 20).fill(NAVY);
+            doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(9.5)
+                .text(title.toUpperCase(), L + 8, sy + 6, { width: CW - 10, lineBreak: false });
+            doc.y = sy + 26;
+        };
+
+        // â”€â”€ Table: header + rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //   cols   â€” array of strings
+        //   widths â€” array of numbers (must sum to CW)
+        //   isHdr  â€” true for header row
+        let _alt = false;
+        const tblReset = () => { _alt = false; };
+
+        const tblRow = (cols, widths, isHdr = false) => {
+            const ROW_H = 17;
+            checkY(ROW_H + 2);
+            const ry = doc.y;
+            const bg = isHdr ? NAVY : (_alt ? ALTROW : WHITE);
+            doc.rect(L, ry, CW, ROW_H).fill(bg);
+
+            // thin horizontal border
+            if (!isHdr) {
+                doc.rect(L, ry, CW, ROW_H).stroke('#e2e8f0');
+                _alt = !_alt;
             }
 
-            cols.forEach((col, i) => {
-                doc.text(col || '-', startX + i * colWidth + 4, startY + 4, {
-                    width: colWidth - 8,
-                    height: 14,
-                    ellipsis: true,
-                });
-            });
+            const clr = isHdr ? WHITE : DARK;
+            const font = isHdr ? 'Helvetica-Bold' : 'Helvetica';
+            doc.fillColor(clr).font(font).fontSize(8);
 
-            doc.y = startY + 18;
+            let cx = L;
+            cols.forEach((col, i) => {
+                doc.text(safe(col), cx + 4, ry + 5, {
+                    width: widths[i] - 8,
+                    height: ROW_H - 6,
+                    ellipsis: true,
+                    lineBreak: false,
+                });
+                cx += widths[i];
+            });
+            if (isHdr) { _alt = false; }
+            doc.y = ry + ROW_H;
         };
 
-        // ---- Basic Info ----
-        sectionTitle('Basic Information');
-        doc.fontSize(10).font('Helvetica').fillColor('#1a1a2e');
-        const info = [
-            ['Email', user.email, 'Mobile', user.mobileNumber || '-'],
-            ['Domain', user.domain || '-', 'Joining Date', formatDate(user.joiningDate)],
-            ['Official Email', user.officialEmail || '-', 'Address', user.address || '-'],
+        // â”€â”€ Info grid (two columns, absolute positioning) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        //   pairs: [ [label, value], [label, value] ]   â€” one pair per column
+        const infoGrid = (pairs) => {
+            const ROW_H = 20;
+            checkY(ROW_H + 4);
+            const gy = doc.y;
+            const colW = CW / 2;
+
+            // Draw backgrounds
+            doc.rect(L, gy, colW - 4, ROW_H).fill(LIGHT);
+            doc.rect(L + colW, gy, colW, ROW_H).fill(ALTROW);
+
+            // Left column
+            doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY)
+                .text(safe(pairs[0][0]) + ':', L + 5, gy + 6, { width: 95, lineBreak: false });
+            doc.font('Helvetica').fontSize(8.5).fillColor(DARK)
+                .text(safe(pairs[0][1]), L + 102, gy + 6, { width: colW - 110, lineBreak: false, ellipsis: true });
+
+            // Right column
+            if (pairs[1]) {
+                doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY)
+                    .text(safe(pairs[1][0]) + ':', L + colW + 5, gy + 6, { width: 95, lineBreak: false });
+                doc.font('Helvetica').fontSize(8.5).fillColor(DARK)
+                    .text(safe(pairs[1][1]), L + colW + 102, gy + 6, { width: colW - 110, lineBreak: false, ellipsis: true });
+            }
+
+            doc.y = gy + ROW_H + 3;
+        };
+
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // BUILD DOCUMENT
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        drawHeader();
+
+        // -- Name block (with profile photo on the right) --
+        const PHOTO_SIZE = 58;
+        const NAME_H = 64;
+        const ny = doc.y;
+        doc.rect(L, ny, CW, NAME_H).fill(LIGHT);
+        doc.rect(L, ny, 4, NAME_H).fill(RED);   // accent bar
+
+        // Try to load profile photo from URL
+        let photoLoaded = false;
+        const photoX = R - PHOTO_SIZE - 8;
+        const photoY = ny + (NAME_H - PHOTO_SIZE) / 2;
+        const photoCX = photoX + PHOTO_SIZE / 2;
+        const photoCY = photoY + PHOTO_SIZE / 2;
+
+        // Profile picture is stored locally at memory/uploads/*
+        // URL format: /uploads/profiles/filename.jpg
+        // Physical path: <root>/memory/uploads/profiles/filename.jpg
+        if (user.profilePicture) {
+            try {
+                const fs_ = require('fs');
+                const path_ = require('path');
+                // Strip leading /uploads/ and resolve against the memory directory
+                const relPath = user.profilePicture.replace(/^\/uploads\//, '');
+                const rootDir = path_.join(__dirname, '..', '..', 'memory');
+                const fullPath = path_.join(rootDir, relPath);
+                if (fs_.existsSync(fullPath)) {
+                    const buf = fs_.readFileSync(fullPath);
+                    doc.save();
+                    doc.circle(photoCX, photoCY, PHOTO_SIZE / 2).clip();
+                    doc.image(buf, photoX, photoY, { width: PHOTO_SIZE, height: PHOTO_SIZE });
+                    doc.restore();
+                    // Thin circle border
+                    doc.circle(photoCX, photoCY, PHOTO_SIZE / 2).lineWidth(1.5).stroke(NAVY);
+                    photoLoaded = true;
+                }
+            } catch (_) { /* photo is optional */ }
+        }
+
+        // Fallback: coloured circle with initial
+        if (!photoLoaded) {
+            doc.circle(photoCX, photoCY, PHOTO_SIZE / 2).fill(NAVY2);
+            doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(22)
+                .text(
+                    (user.name || 'U').charAt(0).toUpperCase(),
+                    photoX, photoCY - 13,
+                    { width: PHOTO_SIZE, align: 'center', lineBreak: false }
+                );
+        }
+
+        // Text left side
+        const nameTextW = CW - PHOTO_SIZE - 32;
+        doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(15)
+            .text(user.name, L + 12, ny + 8, { width: nameTextW, lineBreak: false });
+        doc.font('Helvetica').fontSize(9).fillColor(GREY)
+            .text(
+                `${user.department || ""}   |   ${(user.role || "").toUpperCase()}   |   Emp ID: ${user.employeeId || ""}`,
+                L + 12, ny + 28, { width: nameTextW, lineBreak: false }
+            );
+        if (user.email) {
+            doc.font('Helvetica').fontSize(8).fillColor('#5d6d7e')
+                .text(user.email, L + 12, ny + 46, { width: nameTextW, lineBreak: false, ellipsis: true });
+        }
+        doc.y = ny + NAME_H + 4;
+
+        // â”€â”€ Stats strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        const sty = doc.y;
+        const sw = CW / 6;
+        const statData = [
+            ['Publications', publications.length],
+            ['Patents', patents.length],
+            ['Workshops', workshops.length],
+            ['Seminars', seminars.length],
+            ['Certifications', certifications.length],
+            ['Education', education.length],
         ];
-        info.forEach((row) => {
-            doc.font('Helvetica-Bold').text(`${row[0]}: `, { continued: true })
-                .font('Helvetica').text(`${row[1]}     `, { continued: true })
-                .font('Helvetica-Bold').text(`${row[2]}: `, { continued: true })
-                .font('Helvetica').text(row[3]);
+        statData.forEach(([lbl, cnt], i) => {
+            const sx = L + i * sw;
+            doc.rect(sx, sty, sw, 34).fill(i % 2 === 0 ? NAVY : NAVY2);
+            doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(15)
+                .text(String(cnt), sx, sty + 3, { width: sw, align: 'center', lineBreak: false });
+            doc.font('Helvetica').fontSize(7).fillColor(BLUE_LT)
+                .text(lbl, sx, sty + 21, { width: sw, align: 'center', lineBreak: false });
         });
+        doc.y = sty + 42;
 
-        // ---- Research Profile IDs ----
-        const researchIds = [];
-        if (user.orcidId) researchIds.push(['ORCID', user.orcidId]);
-        if (user.googleScholarUrl) researchIds.push(['Google Scholar', user.googleScholarUrl]);
-        if (user.scopusAuthorId) researchIds.push(['Scopus Author ID', user.scopusAuthorId]);
-        if (user.vidhwanId) researchIds.push(['Vidwan ID', user.vidhwanId]);
+        // â”€â”€ Basic Information â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        section('Basic Information');
+        infoGrid([['Email', user.email], ['Mobile', user.mobileNumber]]);
+        infoGrid([['Domain / Specialization', user.domain], ['Joining Date', fmtDate(user.joiningDate)]]);
+        infoGrid([['Official Email', user.officialEmail], [null, null]]);
 
-        if (researchIds.length > 0) {
-            doc.moveDown(0.5);
-            doc.fontSize(11).font('Helvetica-Bold').fillColor('#0f3460').text('Research Profile Links');
-            doc.moveDown(0.3);
-            researchIds.forEach(([label, value]) => {
-                doc.fontSize(10).font('Helvetica-Bold').fillColor('#1a1a2e').text(`${label}: `, { continued: true })
-                    .font('Helvetica').text(value);
+        // Address in its own full-width row so long text can wrap
+        if (user.address) {
+            checkY(35);
+            const ay = doc.y;
+            doc.rect(L, ay, CW, 28).fill(ALTROW);
+            doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY)
+                .text('Address:', L + 5, ay + 5, { width: 60, lineBreak: false });
+            doc.font('Helvetica').fontSize(8.5).fillColor(DARK)
+                .text(safe(user.address), L + 68, ay + 5, { width: CW - 75, lineBreak: true, height: 22, ellipsis: true });
+            doc.y = ay + 32;
+        }
+
+        // Research IDs
+        const rids = [];
+        if (user.orcidId) rids.push(['ORCID ID', user.orcidId]);
+        if (user.googleScholarUrl) rids.push(['Google Scholar', user.googleScholarUrl]);
+        if (user.scopusAuthorId) rids.push(['Scopus Author ID', user.scopusAuthorId]);
+        if (user.vidhwanId) rids.push(['Vidwan ID', user.vidhwanId]);
+        if (rids.length > 0) {
+            checkY(12 + rids.length * 14);
+            doc.moveDown(0.4);
+            doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Research Profile Links:', L, doc.y);
+            doc.moveDown(0.2);
+            rids.forEach(([lbl, val]) => {
+                doc.font('Helvetica').fontSize(8).fillColor('#1a5276')
+                    .text(`  - ${lbl}: ${safe(val)}`, L + 8, doc.y, { width: CW - 10, lineBreak: false, ellipsis: true });
+                doc.moveDown(0.25);
             });
         }
 
-        // ---- Education ----
-        sectionTitle('Education');
+        // â”€â”€ Education â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        section('Education');
         if (education.length > 0) {
-            tableRow(['Degree', 'University', 'Specialization', 'Year'], true);
-            education.forEach((e) => tableRow([e.degree, e.university, e.specialization, e.year]));
+            const w = [120, 175, 150, 70];
+            tblReset();
+            tblRow(['Degree', 'University / Institution', 'Specialization', 'Year'], w, true);
+            education.forEach(e => tblRow([e.degree, e.university, e.specialization, e.year], w));
         } else {
-            doc.fontSize(10).fillColor('#999').text('No education records');
+            doc.font('Helvetica').fontSize(9).fillColor(GREY).text('  No education records added.', L + 4, doc.y); doc.moveDown(0.4);
         }
 
-        // ---- Certifications ----
-        sectionTitle('Certifications');
+        // â”€â”€ Certifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        section('Certifications');
         if (certifications.length > 0) {
-            tableRow(['Title', 'Issued By', 'Date', 'Credential ID'], true);
-            certifications.forEach((c) => tableRow([c.title, c.issuedBy, formatDate(c.date), c.credentialId]));
+            const w = [180, 135, 85, 115];
+            tblReset();
+            tblRow(['Title', 'Issued By', 'Date', 'Credential ID'], w, true);
+            certifications.forEach(c => tblRow([c.title, c.issuedBy, fmtDate(c.date), c.credentialId], w));
         } else {
-            doc.fontSize(10).fillColor('#999').text('No certifications');
+            doc.font('Helvetica').fontSize(9).fillColor(GREY).text('  No certifications added.', L + 4, doc.y); doc.moveDown(0.4);
         }
 
-        // ---- Publications ----
-        if (doc.y > 650) doc.addPage();
-        sectionTitle('Publications');
+        // â”€â”€ Publications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        section('Publications');
         if (publications.length > 0) {
-            tableRow(['Title', 'Journal', 'Type', 'Indexed', 'DOI', 'Year'], true);
-            publications.forEach((p) => {
-                if (doc.y > 700) doc.addPage();
-                tableRow([p.title, p.journalName, p.publicationType, p.indexedType, p.doi, p.academicYear]);
-                // Additional details row
-                const details = [];
-                if (p.issn) details.push(`ISSN: ${p.issn}`);
-                if (p.volume) details.push(`Vol: ${p.volume}`);
-                if (p.researchDomain) details.push(`Domain: ${p.researchDomain}`);
-                if (details.length > 0) {
-                    doc.fontSize(8).font('Helvetica-Oblique').fillColor('#666').text(`  ${details.join('  |  ')}`);
+            const w = [190, 100, 65, 55, 105];
+            tblReset();
+            tblRow(['Title', 'Journal / Venue', 'Type', 'Indexed', 'Acad. Year'], w, true);
+            publications.forEach(p => {
+                tblRow([p.title, p.journalName, p.publicationType, p.indexedType, p.academicYear], w);
+                if (p.doi || p.issn) {
+                    checkY(12);
+                    const sub = [p.doi && `DOI: ${p.doi}`, p.issn && `ISSN: ${p.issn}`].filter(Boolean).join('   |   ');
+                    doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(GREY)
+                        .text(`     ${sub}`, L + 6, doc.y, { width: CW - 10, lineBreak: false, ellipsis: true });
                     doc.moveDown(0.2);
                 }
             });
         } else {
-            doc.fontSize(10).fillColor('#999').text('No publications');
+            doc.font('Helvetica').fontSize(9).fillColor(GREY).text('  No publications added.', L + 4, doc.y); doc.moveDown(0.4);
         }
 
-        // ---- Patents ----
-        if (doc.y > 650) doc.addPage();
-        sectionTitle('Patents');
+        // â”€â”€ Patents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        section('Patents');
         if (patents.length > 0) {
-            tableRow(['Title', 'Patent No.', 'Status', 'Filing Date', 'Grant Date', 'Year'], true);
-            patents.forEach((p) => {
-                if (doc.y > 720) doc.addPage();
-                tableRow([p.title, p.patentNumber, p.status, formatDate(p.filingDate), formatDate(p.grantDate), p.academicYear]);
-            });
+            const w = [185, 100, 65, 95, 70];
+            tblReset();
+            tblRow(['Title', 'Patent No.', 'Status', 'Filing Date', 'Acad. Year'], w, true);
+            patents.forEach(p => tblRow([p.title, p.patentNumber, p.status, fmtDate(p.filingDate), p.academicYear], w));
         } else {
-            doc.fontSize(10).fillColor('#999').text('No patents');
+            doc.font('Helvetica').fontSize(9).fillColor(GREY).text('  No patents added.', L + 4, doc.y); doc.moveDown(0.4);
         }
 
-        // ---- Workshops ----
-        if (doc.y > 650) doc.addPage();
-        sectionTitle('Workshops');
+        // â”€â”€ Workshops â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        section('Workshops & FDPs');
         if (workshops.length > 0) {
-            tableRow(['Title', 'Institution', 'Role', 'Date', 'Year'], true);
-            workshops.forEach((w) => {
-                if (doc.y > 720) doc.addPage();
-                tableRow([w.title, w.institution, w.role, formatDate(w.date), w.academicYear]);
-            });
+            const w = [185, 145, 65, 85, 35];
+            tblReset();
+            tblRow(['Title', 'Institution', 'Role', 'Date', 'Year'], w, true);
+            workshops.forEach(ws => tblRow([ws.title, ws.institution, ws.role, fmtDate(ws.date), ws.academicYear], w));
         } else {
-            doc.fontSize(10).fillColor('#999').text('No workshops');
+            doc.font('Helvetica').fontSize(9).fillColor(GREY).text('  No workshops added.', L + 4, doc.y); doc.moveDown(0.4);
         }
 
-        // ---- Seminars ----
-        if (doc.y > 650) doc.addPage();
-        sectionTitle('Seminars');
+        // â”€â”€ Seminars â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        section('Seminars & Conferences');
         if (seminars.length > 0) {
-            tableRow(['Topic', 'Institution', 'Role', 'Date', 'Year'], true);
-            seminars.forEach((s) => {
-                if (doc.y > 720) doc.addPage();
-                tableRow([s.topic, s.institution, s.role, formatDate(s.date), s.academicYear]);
-            });
+            const w = [185, 145, 65, 85, 35];
+            tblReset();
+            tblRow(['Topic', 'Institution', 'Role', 'Date', 'Year'], w, true);
+            seminars.forEach(s => tblRow([s.topic, s.institution, s.role, fmtDate(s.date), s.academicYear], w));
         } else {
-            doc.fontSize(10).fillColor('#999').text('No seminars');
+            doc.font('Helvetica').fontSize(9).fillColor(GREY).text('  No seminars added.', L + 4, doc.y); doc.moveDown(0.4);
         }
 
+        drawFooter();
         doc.end();
     } catch (error) {
         next(error);
     }
 };
+
 
 // @desc    Export NAAC-formatted report
 // @route   GET /api/export/naac

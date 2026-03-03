@@ -4,7 +4,7 @@ const notificationSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     message: { type: String, required: true },
     type: { type: String, enum: ['info', 'success', 'warning'], default: 'info' },
-    category: { type: String, enum: ['Publication', 'Patent', 'Workshop', 'Seminar', 'Certification', 'User'], default: 'info' },
+    category: { type: String, enum: ['Publication', 'Patent', 'Workshop', 'Seminar', 'Certification', 'User', 'General'], default: 'General' },
     link: { type: String },
     read: { type: Boolean, default: false },
 }, { timestamps: true });

@@ -5,9 +5,10 @@ import API from '../api/axios';
 import getFileUrl from '../utils/getFileUrl';
 import {
     BookOpen, Lightbulb, Award, Briefcase, Mic, Search,
-    ArrowRight, ExternalLink, TrendingUp, Filter, Calendar, ChevronDown, X
+    ArrowRight, ExternalLink, TrendingUp, Filter, Calendar, ChevronDown, X, Bell
 } from 'lucide-react';
 import useAcademicYears from '../hooks/useAcademicYears';
+import SendNotificationModal from '../components/ui/SendNotificationModal';
 
 const Explore = () => {
     const { user } = useAuth();
@@ -25,6 +26,7 @@ const Explore = () => {
     const [patentStatusFilter, setPatentStatusFilter] = useState('');
     const [workshopRoleFilter, setWorkshopRoleFilter] = useState('');
     const [showFilters, setShowFilters] = useState(false);
+    const [notifyOpen, setNotifyOpen] = useState(false);
     const { academicYears } = useAcademicYears();
 
     useEffect(() => {
@@ -103,6 +105,9 @@ const Explore = () => {
 
     return (
         <div>
+            {notifyOpen && (
+                <SendNotificationModal onClose={() => setNotifyOpen(false)} />
+            )}
             {/* Header */}
             <div className="card p-4 sm:p-6 mb-4 sm:mb-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -113,6 +118,17 @@ const Explore = () => {
                         <p className="text-dark-500 text-xs sm:text-sm mt-1">Browse all research activities across the institution</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        {/* Send Notification — admin/HOD only */}
+                        {(user?.role === 'admin' || user?.role === 'hod') && (
+                            <button
+                                onClick={() => setNotifyOpen(true)}
+                                className="btn-primary flex items-center gap-1.5 text-sm"
+                                title="Send notification to faculty"
+                            >
+                                <Bell className="w-4 h-4" />
+                                <span className="hidden sm:inline">Notify</span>
+                            </button>
+                        )}
                         <div className="relative flex-1 sm:flex-none">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" />
                             <input

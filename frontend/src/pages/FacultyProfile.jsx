@@ -8,11 +8,12 @@ import toast from 'react-hot-toast';
 import {
     User, GraduationCap, Award, BookOpen, Lightbulb,
     Briefcase, Mic, Plus, Edit3, Trash2, Download,
-    Upload, ExternalLink, Printer
+    Upload, ExternalLink, Printer, KeyRound
 } from 'lucide-react';
 import ProfilePicture from '../components/ui/ProfilePicture';
 import useAcademicYears from '../hooks/useAcademicYears';
 import ScoreCard from '../components/ui/ScoreCard';
+import ResetPasswordModal from '../components/ui/ResetPasswordModal';
 
 const FacultyProfile = () => {
     const { id } = useParams();
@@ -35,9 +36,12 @@ const FacultyProfile = () => {
     const [saving, setSaving] = useState(false);
     const [editProfileOpen, setEditProfileOpen] = useState(false);
     const [profileForm, setProfileForm] = useState({});
+    const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
 
     const facultyId = id || currentUser?._id;
     const canEdit = currentUser?._id === facultyId;
+    // Admin and HOD can reset passwords (but not their own via this UI)
+    const canResetPassword = (currentUser?.role === 'admin' || currentUser?.role === 'hod') && !canEdit;
 
     useEffect(() => {
         if (facultyId) fetchAll();
@@ -427,6 +431,14 @@ const FacultyProfile = () => {
                         {canEdit && (
                             <button onClick={openEditProfile} className="btn-secondary flex items-center gap-2 text-sm">
                                 <Edit3 className="w-4 h-4" /> Edit Profile
+                            </button>
+                        )}
+                        {canResetPassword && (
+                            <button
+                                onClick={() => setResetPasswordOpen(true)}
+                                className="btn-secondary flex items-center gap-2 text-sm text-amber-700 border-amber-300 hover:bg-amber-50"
+                            >
+                                <KeyRound className="w-4 h-4" /> Reset Password
                             </button>
                         )}
                         <button onClick={handleDownloadPDF} className="btn-secondary flex items-center gap-2 text-sm">
@@ -819,6 +831,14 @@ const FacultyProfile = () => {
                     </div>
                 </form>
             </Modal>
+
+            {/* Reset Password Modal (admin/HOD only) */}
+            {resetPasswordOpen && faculty && (
+                <ResetPasswordModal
+                    user={faculty}
+                    onClose={() => setResetPasswordOpen(false)}
+                />
+            )}
         </div>
     );
 };
