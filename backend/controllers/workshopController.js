@@ -53,9 +53,12 @@ exports.getFacultyWorkshops = async (req, res, next) => {
 // @route   POST /api/workshops/:facultyId
 exports.addWorkshop = async (req, res, next) => {
     try {
+        if (req.params.facultyId !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only add entries to your own profile' });
+        }
         req.body.facultyId = req.params.facultyId;
         if (req.file) {
-            const result = saveToMemory(req.file.buffer, 'workshops', req.file.originalname);
+            const result = saveToMemory(req.file.buffer, 'workshops', req.file.originalname, req.user.employeeId);
             req.body.certificateUrl = result.url;
         }
         const record = await Workshop.create(req.body);
@@ -83,9 +86,13 @@ exports.updateWorkshop = async (req, res, next) => {
         let record = await Workshop.findById(req.params.id);
         if (!record) return res.status(404).json({ success: false, message: 'Record not found' });
 
+        if (record.facultyId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only edit your own entries' });
+        }
+
         if (req.file) {
             if (record.certificateUrl) deleteFromMemory(record.certificateUrl);
-            const result = saveToMemory(req.file.buffer, 'workshops', req.file.originalname);
+            const result = saveToMemory(req.file.buffer, 'workshops', req.file.originalname, req.user.employeeId);
             req.body.certificateUrl = result.url;
         }
 
@@ -109,6 +116,10 @@ exports.deleteWorkshop = async (req, res, next) => {
     try {
         const record = await Workshop.findById(req.params.id);
         if (!record) return res.status(404).json({ success: false, message: 'Record not found' });
+
+        if (record.facultyId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only delete your own entries' });
+        }
 
         if (record.certificateUrl) deleteFromMemory(record.certificateUrl);
 

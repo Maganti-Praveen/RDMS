@@ -146,7 +146,10 @@ exports.exportPDF = async (req, res, next) => {
 
         const doc = new PDFDocument({ margin: 0, size: 'A4', autoFirstPage: true });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=${user.name.replace(/\s/g, '_')}_profile.pdf`);
+        const safeName = (user.name || 'faculty').replace(/\s+/g, '_');
+        const safeEmpId = (user.employeeId || 'EMP').replace(/\s+/g, '_');
+        res.setHeader('Content-Disposition', 
+`attachment; filename=${safeEmpId}_${safeName}_profile.pdf`);
         doc.pipe(res);
 
         // â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

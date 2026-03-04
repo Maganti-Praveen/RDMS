@@ -4,213 +4,107 @@ const Patent = require('../models/Patent');
 const Workshop = require('../models/Workshop');
 const Seminar = require('../models/Seminar');
 const Certification = require('../models/Certification');
+const Education = require('../models/Education');
 const User = require('../models/User');
 
-// @desc    Get all score configs
+// @desc    Get score config (kept for backward compat — returns empty)
 // @route   GET /api/scores/config
-exports.getScoreConfig = async (req, res, next) => {
-    try {
-        const config = await ScoreConfig.find().sort({ category: 1, subCategory: 1 });
-        res.json({ success: true, data: config });
-    } catch (error) {
-        next(error);
-    }
+exports.getScoreConfig = async (req, res) => {
+    res.json({ success: true, data: [] });
 };
 
-// @desc    Update a score config entry
-// @route   PUT /api/scores/config/:id
-exports.updateScoreConfig = async (req, res, next) => {
-    try {
-        const { points } = req.body;
-        const config = await ScoreConfig.findByIdAndUpdate(
-            req.params.id,
-            { points },
-            { new: true, runValidators: true }
-        );
-        if (!config) {
-            return res.status(404).json({ success: false, message: 'Config not found' });
-        }
-        res.json({ success: true, data: config });
-    } catch (error) {
-        next(error);
-    }
+// @desc    Update score config (no-op)
+exports.updateScoreConfig = async (req, res) => {
+    res.json({ success: true, data: {} });
 };
 
-// Helper: calculate score for a faculty member
-const calculateScore = async (facultyId) => {
-    const configs = await ScoreConfig.find().lean();
-    const configMap = {};
-    configs.forEach(c => {
-        configMap[`${c.category}:${c.subCategory}`] = c.points;
-    });
-
-    // Publications — score by indexedType
-    const publications = await Publication.find({ facultyId }).select('indexedType publicationType').lean();
-    let pubScore = 0;
-    publications.forEach(p => {
-        const key = `publication:${p.indexedType || p.publicationType || 'Other'}`;
-        pubScore += configMap[key] || configMap['publication:Other'] || 2;
-    });
-
-    // Patents — score by status
-    const patents = await Patent.find({ facultyId }).select('status').lean();
-    let patScore = 0;
-    patents.forEach(p => {
-        const key = `patent:${p.status || 'Filed'}`;
-        patScore += configMap[key] || configMap['patent:Filed'] || 5;
-    });
-
-    // Workshops — score by role
-    const workshops = await Workshop.find({ facultyId }).select('role').lean();
-    let wsScore = 0;
-    workshops.forEach(w => {
-        const key = `workshop:${w.role || 'Attended'}`;
-        wsScore += configMap[key] || configMap['workshop:Attended'] || 2;
-    });
-
-    // Seminars — flat score
-    const seminarCount = await Seminar.countDocuments({ facultyId });
-    const semScore = seminarCount * (configMap['seminar:Presented'] || 3);
-
-    // Certifications — flat score
-    const certCount = await Certification.countDocuments({ facultyId });
-    const certScore = certCount * (configMap['certification:Completed'] || 2);
-
-    return {
-        total: pubScore + patScore + wsScore + semScore + certScore,
-        breakdown: {
-            publications: pubScore,
-            patents: patScore,
-            workshops: wsScore,
-            seminars: semScore,
-            certifications: certScore,
-        },
-        counts: {
-            publications: publications.length,
-            patents: patents.length,
-            workshops: workshops.length,
-            seminars: seminarCount,
-            certifications: certCount,
-        },
-    };
-};
-
-// @desc    Get score for a specific faculty
-// @route   GET /api/scores/faculty/:facultyId
-exports.getFacultyScore = async (req, res, next) => {
-    try {
-        const score = await calculateScore(req.params.facultyId);
-        res.json({ success: true, data: score });
-    } catch (error) {
-        next(error);
-    }
-};
-
-// @desc    Get rankings (dept top 3 + college top 5)
+// @desc    Get rankings ranked by total research upload count
 // @route   GET /api/scores/rankings
 exports.getRankings = async (req, res, next) => {
     try {
-        // 1. Fetch configs and all faculty in parallel
-        const [configs, faculty] = await Promise.all([
-            ScoreConfig.find().lean(),
-            User.find({ role: { $in: ['faculty', 'hod'] } })
-                .select('name department profilePicture')
-                .lean(),
-        ]);
-
-        // Build config lookup map
-        const configMap = {};
-        configs.forEach(c => {
-            configMap[`${c.category}:${c.subCategory}`] = c.points;
-        });
+        const faculty = await User.find({ role: { $in: ['faculty', 'hod'] } })
+            .select('name department profilePicture employeeId')
+            .lean();
 
         const facultyIds = faculty.map(f => f._id);
 
-        // 2. Batch-fetch ALL research entries in 5 parallel queries
-        const [allPubs, allPatents, allWorkshops, allSeminars, allCerts] = await Promise.all([
-            Publication.find({ facultyId: { $in: facultyIds } }).select('facultyId indexedType publicationType').lean(),
-            Patent.find({ facultyId: { $in: facultyIds } }).select('facultyId status').lean(),
-            Workshop.find({ facultyId: { $in: facultyIds } }).select('facultyId role').lean(),
+        // Batch-fetch counts for all 6 categories in parallel
+        const [allPubs, allPatents, allWorkshops, allSeminars, allCerts, allEdu] = await Promise.all([
+            Publication.find({ facultyId: { $in: facultyIds } }).select('facultyId').lean(),
+            Patent.find({ facultyId: { $in: facultyIds } }).select('facultyId').lean(),
+            Workshop.find({ facultyId: { $in: facultyIds } }).select('facultyId').lean(),
             Seminar.find({ facultyId: { $in: facultyIds } }).select('facultyId').lean(),
             Certification.find({ facultyId: { $in: facultyIds } }).select('facultyId').lean(),
+            Education.find({ facultyId: { $in: facultyIds } }).select('facultyId').lean(),
         ]);
 
-        // 3. Group entries by facultyId string for O(1) lookup
-        const grouped = (arr) => arr.reduce((acc, item) => {
+        // Count per faculty using O(n) grouping
+        const countByFaculty = (arr) => arr.reduce((acc, item) => {
             const id = item.facultyId.toString();
-            if (!acc[id]) acc[id] = [];
-            acc[id].push(item);
+            acc[id] = (acc[id] || 0) + 1;
             return acc;
         }, {});
 
-        const pubsByFaculty = grouped(allPubs);
-        const patsByFaculty = grouped(allPatents);
-        const wsByFaculty = grouped(allWorkshops);
-        const semsByFaculty = grouped(allSeminars);
-        const certsByFaculty = grouped(allCerts);
+        const pubCount = countByFaculty(allPubs);
+        const patCount = countByFaculty(allPatents);
+        const wsCount = countByFaculty(allWorkshops);
+        const semCount = countByFaculty(allSeminars);
+        const certCount = countByFaculty(allCerts);
+        const eduCount = countByFaculty(allEdu);
 
-        // 4. Compute scores in memory (zero DB queries in this loop)
-        const scored = faculty.map(f => {
+        // Compute total uploads per faculty
+        const ranked = faculty.map(f => {
             const id = f._id.toString();
-
-            const pubs = pubsByFaculty[id] || [];
-            let pubScore = 0;
-            pubs.forEach(p => {
-                const key = `publication:${p.indexedType || p.publicationType || 'Other'}`;
-                pubScore += configMap[key] || configMap['publication:Other'] || 2;
-            });
-
-            const pats = patsByFaculty[id] || [];
-            let patScore = 0;
-            pats.forEach(p => {
-                const key = `patent:${p.status || 'Filed'}`;
-                patScore += configMap[key] || configMap['patent:Filed'] || 5;
-            });
-
-            const ws = wsByFaculty[id] || [];
-            let wsScore = 0;
-            ws.forEach(w => {
-                const key = `workshop:${w.role || 'Attended'}`;
-                wsScore += configMap[key] || configMap['workshop:Attended'] || 2;
-            });
-
-            const semCount = (semsByFaculty[id] || []).length;
-            const certCount = (certsByFaculty[id] || []).length;
-            const semScore = semCount * (configMap['seminar:Presented'] || 3);
-            const certScore = certCount * (configMap['certification:Completed'] || 2);
-
-            const total = pubScore + patScore + wsScore + semScore + certScore;
-            return {
-                ...f,
-                score: total,
-                breakdown: {
-                    publications: pubScore,
-                    patents: patScore,
-                    workshops: wsScore,
-                    seminars: semScore,
-                    certifications: certScore,
-                },
+            const counts = {
+                publications: pubCount[id] || 0,
+                patents: patCount[id] || 0,
+                workshops: wsCount[id] || 0,
+                seminars: semCount[id] || 0,
+                certifications: certCount[id] || 0,
+                education: eduCount[id] || 0,
             };
+            const total = Object.values(counts).reduce((a, b) => a + b, 0);
+            return { ...f, score: total, counts };
         });
 
-        scored.sort((a, b) => b.score - a.score);
+        // Sort by total uploads descending
+        ranked.sort((a, b) => b.score - a.score);
 
         // College top 5
-        const collegeTop5 = scored.slice(0, 5);
+        const collegeTop5 = ranked.slice(0, 5);
 
         // Department top 3
         const deptMap = {};
-        scored.forEach(f => {
+        ranked.forEach(f => {
             if (!deptMap[f.department]) deptMap[f.department] = [];
-            if (deptMap[f.department].length < 3) {
-                deptMap[f.department].push(f);
-            }
+            if (deptMap[f.department].length < 3) deptMap[f.department].push(f);
         });
 
         res.json({
             success: true,
             data: { collegeTop5, departmentTop3: deptMap },
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get count-based "score" for a specific faculty
+// @route   GET /api/scores/faculty/:facultyId
+exports.getFacultyScore = async (req, res, next) => {
+    try {
+        const id = req.params.facultyId;
+        const [pubs, pats, ws, sems, certs, edu] = await Promise.all([
+            Publication.countDocuments({ facultyId: id }),
+            Patent.countDocuments({ facultyId: id }),
+            Workshop.countDocuments({ facultyId: id }),
+            Seminar.countDocuments({ facultyId: id }),
+            Certification.countDocuments({ facultyId: id }),
+            Education.countDocuments({ facultyId: id }),
+        ]);
+        const counts = { publications: pubs, patents: pats, workshops: ws, seminars: sems, certifications: certs, education: edu };
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        res.json({ success: true, data: { total, counts } });
     } catch (error) {
         next(error);
     }

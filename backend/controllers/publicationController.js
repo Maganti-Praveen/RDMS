@@ -59,10 +59,15 @@ exports.getFacultyPublications = async (req, res, next) => {
 // @route   POST /api/publications/:facultyId
 exports.addPublication = async (req, res, next) => {
     try {
+        // Only the faculty member can add their own entries
+        if (req.params.facultyId !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only add entries to your own profile' });
+        }
+
         req.body.facultyId = req.params.facultyId;
 
         if (req.file) {
-            const result = saveToMemory(req.file.buffer, 'publications', req.file.originalname);
+            const result = saveToMemory(req.file.buffer, 'publications', req.file.originalname, req.user.employeeId);
             req.body.fileUrl = result.url;
         }
 
@@ -97,9 +102,13 @@ exports.updatePublication = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Record not found' });
         }
 
+        if (record.facultyId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only edit your own entries' });
+        }
+
         if (req.file) {
             if (record.fileUrl) deleteFromMemory(record.fileUrl);
-            const result = saveToMemory(req.file.buffer, 'publications', req.file.originalname);
+            const result = saveToMemory(req.file.buffer, 'publications', req.file.originalname, req.user.employeeId);
             req.body.fileUrl = result.url;
         }
 
@@ -130,6 +139,10 @@ exports.deletePublication = async (req, res, next) => {
         const record = await Publication.findById(req.params.id);
         if (!record) {
             return res.status(404).json({ success: false, message: 'Record not found' });
+        }
+
+        if (record.facultyId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only delete your own entries' });
         }
 
         if (record.fileUrl) deleteFromMemory(record.fileUrl);

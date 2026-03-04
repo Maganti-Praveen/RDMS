@@ -70,9 +70,9 @@ exports.updateUser = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Faculty can only update themselves
-        if (req.user.role === 'faculty' && req.user._id.toString() !== req.params.id) {
-            return res.status(403).json({ success: false, message: 'Not authorized' });
+        // Only the user themselves can update their own profile
+        if (req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ success: false, message: 'You can only update your own profile' });
         }
 
         // Remove fields that shouldn't be updated by non-admin
@@ -211,9 +211,9 @@ exports.uploadProfilePicture = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // Only self or admin can change profile picture
-        if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.id) {
-            return res.status(403).json({ success: false, message: 'Not authorized' });
+        // Only the user themselves can change their own profile picture
+        if (req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ success: false, message: 'You can only update your own profile picture' });
         }
 
         // Delete old picture if exists
@@ -225,12 +225,12 @@ exports.uploadProfilePicture = async (req, res, next) => {
 
         if (req.file) {
             // File upload
-            result = saveToMemory(req.file.buffer, 'profile-pictures', req.file.originalname);
+            result = saveToMemory(req.file.buffer, 'profile-pictures', req.file.originalname, user.employeeId);
         } else if (req.body.image) {
             // Base64 camera capture — decode and save
             const base64Data = req.body.image.replace(/^data:image\/\w+;base64,/, '');
             const buffer = Buffer.from(base64Data, 'base64');
-            result = saveToMemory(buffer, 'profile-pictures', 'camera_capture.jpg');
+            result = saveToMemory(buffer, 'profile-pictures', `${user.employeeId}_photo.jpg`, user.employeeId);
         } else {
             return res.status(400).json({ success: false, message: 'No image provided' });
         }
@@ -265,8 +265,9 @@ exports.removeProfilePicture = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.id) {
-            return res.status(403).json({ success: false, message: 'Not authorized' });
+        // Only the user themselves can remove their own profile picture
+        if (req.user._id.toString() !== req.params.id) {
+            return res.status(403).json({ success: false, message: 'You can only remove your own profile picture' });
         }
 
         if (user.profilePicture) {

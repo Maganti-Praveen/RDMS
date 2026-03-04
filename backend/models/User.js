@@ -51,6 +51,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true,
     },
+    // Personal email (Gmail, etc.) — stored in profile only, NOT used for login
+    personalEmail: {
+        type: String,
+        trim: true,
+    },
     address: {
         type: String,
         trim: true,
@@ -68,6 +73,14 @@ const userSchema = new mongoose.Schema({
         trim: true,
     },
     vidhwanId: {
+        type: String,
+        trim: true,
+    },
+    researchGateUrl: {
+        type: String,
+        trim: true,
+    },
+    linkedinUrl: {
         type: String,
         trim: true,
     },

@@ -53,9 +53,12 @@ exports.getFacultyPatents = async (req, res, next) => {
 // @route   POST /api/patents/:facultyId
 exports.addPatent = async (req, res, next) => {
     try {
+        if (req.params.facultyId !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only add entries to your own profile' });
+        }
         req.body.facultyId = req.params.facultyId;
         if (req.file) {
-            const result = saveToMemory(req.file.buffer, 'patents', req.file.originalname);
+            const result = saveToMemory(req.file.buffer, 'patents', req.file.originalname, req.user.employeeId);
             req.body.fileUrl = result.url;
         }
         const record = await Patent.create(req.body);
@@ -83,9 +86,13 @@ exports.updatePatent = async (req, res, next) => {
         let record = await Patent.findById(req.params.id);
         if (!record) return res.status(404).json({ success: false, message: 'Record not found' });
 
+        if (record.facultyId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only edit your own entries' });
+        }
+
         if (req.file) {
             if (record.fileUrl) deleteFromMemory(record.fileUrl);
-            const result = saveToMemory(req.file.buffer, 'patents', req.file.originalname);
+            const result = saveToMemory(req.file.buffer, 'patents', req.file.originalname, req.user.employeeId);
             req.body.fileUrl = result.url;
         }
 
@@ -109,6 +116,10 @@ exports.deletePatent = async (req, res, next) => {
     try {
         const record = await Patent.findById(req.params.id);
         if (!record) return res.status(404).json({ success: false, message: 'Record not found' });
+
+        if (record.facultyId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only delete your own entries' });
+        }
 
         if (record.fileUrl) deleteFromMemory(record.fileUrl);
 

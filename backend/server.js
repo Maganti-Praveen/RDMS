@@ -14,7 +14,13 @@ connectDB();
 const app = express();
 
 // Middleware
-app.use(cors());
+// CORS — open to all origins so any device on the college LAN can connect
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 

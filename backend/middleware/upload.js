@@ -34,17 +34,21 @@ const upload = multer({
 
 // Save buffer to local memory folder
 // folder: subfolder name like 'publications', 'patents', etc.
+// empId: optional employee ID to prefix the filename (e.g. 'RCEE001')
 // Returns: { url, filePath, fileName }
-const saveToMemory = (buffer, folder, originalname) => {
+const saveToMemory = (buffer, folder, originalname, empId = '') => {
     const dir = path.join(MEMORY_DIR, folder);
     ensureDir(dir);
 
-    // Generate unique filename: timestamp_random_originalname
+    // Sanitise the original filename
     const ext = path.extname(originalname) || '.pdf';
     const baseName = path.basename(originalname, ext)
         .replace(/[^a-zA-Z0-9_-]/g, '_')
         .substring(0, 50);
-    const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${baseName}${ext}`;
+
+    // Prefix with empId when available: EMPID_timestamp_random_basename.ext
+    const safeEmpId = empId ? `${empId.replace(/[^a-zA-Z0-9_-]/g, '_')}_` : '';
+    const uniqueName = `${safeEmpId}${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${baseName}${ext}`;
     const filePath = path.join(dir, uniqueName);
 
     fs.writeFileSync(filePath, buffer);
@@ -58,6 +62,7 @@ const saveToMemory = (buffer, folder, originalname) => {
         fileName: uniqueName,
     };
 };
+
 
 // Delete file from memory
 const deleteFromMemory = (fileUrl) => {

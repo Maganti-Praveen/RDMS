@@ -196,12 +196,12 @@ exports.login = async (req, res, next) => {
 
         const user = await User.findOne({ email }).select('+password');
         if (!user) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+            return res.status(401).json({ success: false, message: 'No account found with this email. Please use your college email (@rcee.ac.in)' });
         }
 
         const isMatch = await user.matchPassword(password);
         if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+            return res.status(401).json({ success: false, message: 'Incorrect password. Please try again' });
         }
 
         const token = generateToken(user._id);

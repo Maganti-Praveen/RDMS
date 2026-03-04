@@ -50,6 +50,9 @@ exports.getFacultySeminars = async (req, res, next) => {
 // @route   POST /api/seminars/:facultyId
 exports.addSeminar = async (req, res, next) => {
     try {
+        if (req.params.facultyId !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only add entries to your own profile' });
+        }
         req.body.facultyId = req.params.facultyId;
         const record = await Seminar.create(req.body);
 
@@ -73,6 +76,13 @@ exports.addSeminar = async (req, res, next) => {
 // @route   PUT /api/seminars/:id
 exports.updateSeminar = async (req, res, next) => {
     try {
+        const existing = await Seminar.findById(req.params.id);
+        if (!existing) return res.status(404).json({ success: false, message: 'Record not found' });
+
+        if (existing.facultyId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only edit your own entries' });
+        }
+
         const record = await Seminar.findByIdAndUpdate(req.params.id, req.body, {
             new: true, runValidators: true,
         });
@@ -96,6 +106,10 @@ exports.deleteSeminar = async (req, res, next) => {
     try {
         const record = await Seminar.findById(req.params.id);
         if (!record) return res.status(404).json({ success: false, message: 'Record not found' });
+
+        if (record.facultyId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only delete your own entries' });
+        }
 
         await logActivity({
             userId: req.user._id, role: req.user.role,

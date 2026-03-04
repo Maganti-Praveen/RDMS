@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import API from '../../api/axios';
-import { Trophy, Medal, Crown, Star } from 'lucide-react';
+import { Trophy, Medal, Crown, Upload } from 'lucide-react';
 
 const RankingsPanel = () => {
     const [rankings, setRankings] = useState(null);
@@ -38,6 +38,7 @@ const RankingsPanel = () => {
             <div className="flex items-center gap-2 mb-4">
                 <Trophy className="w-5 h-5 text-accent-500" />
                 <h3 className="text-sm font-bold text-dark-800">Rankings</h3>
+                <span className="ml-auto text-xs text-dark-400">by total uploads</span>
             </div>
 
             <div className="flex gap-1 mb-4 bg-dark-50 rounded-lg p-1">
@@ -75,7 +76,7 @@ const RankingsPanel = () => {
                                 <p className="text-xs text-dark-400">{f.department}</p>
                             </div>
                             <div className="flex items-center gap-1">
-                                <Star className="w-3.5 h-3.5 text-accent-500" />
+                                <Upload className="w-3.5 h-3.5 text-primary-400" />
                                 <span className="text-sm font-bold text-dark-700">{f.score}</span>
                             </div>
                         </Link>

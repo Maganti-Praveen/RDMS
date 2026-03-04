@@ -9,7 +9,7 @@ echo  ║              Ramachandra College of Engineering      ║
 echo  ╚══════════════════════════════════════════════════════╝
 echo.
 echo  Starting Backend Server  (http://localhost:5000)
-echo  Starting Frontend Server (http://localhost:3000)
+echo  Starting Frontend Server (http://localhost:5173)
 echo.
 
 REM --- Start Backend in a new window ---
@@ -22,9 +22,9 @@ REM --- Start Frontend in a new window ---
 start "RDMS Frontend" cmd /k "cd /d "%~dp0frontend" && echo [FRONTEND] Starting... && npm run dev"
 
 REM --- Wait for Vite to be ready, then open browser ---
-timeout /t 6 /nobreak >nul
-echo  Opening browser at http://localhost:3000 ...
-start http://localhost:3000
+timeout /t 3 /nobreak >nul
+echo  Opening browser at http://localhost:5173 ...
+start http://localhost:5173
 
 echo.
 echo  Both servers are running in separate windows.

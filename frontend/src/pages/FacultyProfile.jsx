@@ -183,13 +183,15 @@ const FacultyProfile = () => {
             name: faculty.name || '',
             mobileNumber: faculty.mobileNumber || '',
             domain: faculty.domain || '',
-            officialEmail: faculty.officialEmail || '',
+            personalEmail: faculty.personalEmail || faculty.officialEmail || '',
             joiningDate: faculty.joiningDate ? faculty.joiningDate.split('T')[0] : '',
             address: faculty.address || '',
             orcidId: faculty.orcidId || '',
             googleScholarUrl: faculty.googleScholarUrl || '',
             scopusAuthorId: faculty.scopusAuthorId || '',
             vidhwanId: faculty.vidhwanId || '',
+            researchGateUrl: faculty.researchGateUrl || '',
+            linkedinUrl: faculty.linkedinUrl || '',
         });
         setEditProfileOpen(true);
     };
@@ -460,9 +462,9 @@ const FacultyProfile = () => {
                 <Accordion title="Basic Information" icon={User} defaultOpen>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
                         {[
-                            ['Email', faculty.email], ['Mobile', faculty.mobileNumber],
+                            ['College Email (Login)', faculty.email], ['Mobile', faculty.mobileNumber],
                             ['Domain', faculty.domain], ['Joining Date', formatDate(faculty.joiningDate)],
-                            ['Official Email', faculty.officialEmail], ['Address', faculty.address],
+                            ['Personal Email', faculty.personalEmail || faculty.officialEmail], ['Address', faculty.address],
                         ].map(([label, val]) => (
                             <div key={label}>
                                 <p className="text-xs text-dark-400 font-medium uppercase tracking-wider">{label}</p>
@@ -471,7 +473,7 @@ const FacultyProfile = () => {
                         ))}
                     </div>
                     {/* Research IDs */}
-                    {(faculty.orcidId || faculty.googleScholarUrl || faculty.scopusAuthorId || faculty.vidhwanId) && (
+                    {(faculty.orcidId || faculty.googleScholarUrl || faculty.scopusAuthorId || faculty.vidhwanId || faculty.researchGateUrl || faculty.linkedinUrl) && (
                         <div className="mt-4 pt-4 border-t border-dark-100">
                             <p className="text-xs text-dark-400 font-medium uppercase tracking-wider mb-2">Research Profiles</p>
                             <div className="flex flex-wrap gap-3">
@@ -497,6 +499,18 @@ const FacultyProfile = () => {
                                     <a href={`https://vidwan.inflibnet.ac.in/profile/${faculty.vidhwanId}`} target="_blank" rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-800 bg-primary-50 px-3 py-1.5 rounded-lg transition-all hover:bg-primary-100">
                                         <ExternalLink className="w-3.5 h-3.5" /> Vidwan: {faculty.vidhwanId}
+                                    </a>
+                                )}
+                                {faculty.researchGateUrl && (
+                                    <a href={faculty.researchGateUrl} target="_blank" rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg transition-all hover:bg-emerald-100">
+                                        <ExternalLink className="w-3.5 h-3.5" /> ResearchGate
+                                    </a>
+                                )}
+                                {faculty.linkedinUrl && (
+                                    <a href={faculty.linkedinUrl} target="_blank" rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg transition-all hover:bg-blue-100">
+                                        <ExternalLink className="w-3.5 h-3.5" /> LinkedIn
                                     </a>
                                 )}
                             </div>
@@ -747,13 +761,14 @@ const FacultyProfile = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-dark-700 mb-1">Official Email</label>
+                            <label className="block text-sm font-medium text-dark-700 mb-1">Personal Email <span className="text-xs text-dark-400 font-normal">(Gmail / personal)</span></label>
                             <input
-                                name="officialEmail"
+                                name="personalEmail"
                                 type="email"
-                                value={profileForm.officialEmail || ''}
-                                onChange={(e) => setProfileForm({ ...profileForm, officialEmail: e.target.value })}
+                                value={profileForm.personalEmail || ''}
+                                onChange={(e) => setProfileForm({ ...profileForm, personalEmail: e.target.value })}
                                 className="input-field"
+                                placeholder="e.g., yourname@gmail.com"
                             />
                         </div>
                         <div>
@@ -820,7 +835,28 @@ const FacultyProfile = () => {
                                     placeholder="e.g., 12345"
                                 />
                             </div>
+                            <div>
+                                <label className="block text-xs font-medium text-dark-600 mb-1">ResearchGate URL</label>
+                                <input
+                                    name="researchGateUrl"
+                                    value={profileForm.researchGateUrl || ''}
+                                    onChange={(e) => setProfileForm({ ...profileForm, researchGateUrl: e.target.value })}
+                                    className="input-field"
+                                    placeholder="https://www.researchgate.net/profile/..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-dark-600 mb-1">LinkedIn URL</label>
+                                <input
+                                    name="linkedinUrl"
+                                    value={profileForm.linkedinUrl || ''}
+                                    onChange={(e) => setProfileForm({ ...profileForm, linkedinUrl: e.target.value })}
+                                    className="input-field"
+                                    placeholder="https://www.linkedin.com/in/..."
+                                />
+                            </div>
                         </div>
+
                     </div>
                     <div className="flex justify-end gap-3 mt-6">
                         <button type="button" onClick={() => setEditProfileOpen(false)} className="btn-secondary">Cancel</button>

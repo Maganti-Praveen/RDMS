@@ -49,7 +49,7 @@ const Sidebar = () => {
                 <img
                     src={collegeLogo}
                     alt="RCE"
-                    className="w-11 h-11 rounded-lg bg-white p-1 shadow-md shrink-0 object-contain"
+                    className="w-20 h-11 rounded-lg bg-white px-1 py-0.5 shadow-md shrink-0 object-contain"
                 />
                 {!collapsed && (
                     <div>
