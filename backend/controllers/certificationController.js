@@ -23,7 +23,7 @@ exports.addCertification = async (req, res, next) => {
         req.body.facultyId = req.params.facultyId;
 
         if (req.file) {
-            const result = saveToMemory(req.file.buffer, 'certifications', req.file.originalname, req.user.employeeId);
+            const result = saveToMemory(req.file.buffer, 'certifications', req.file.originalname, req.user.employeeId, req.user.department);
             req.body.fileUrl = result.url;
         }
 
@@ -59,7 +59,7 @@ exports.updateCertification = async (req, res, next) => {
 
         if (req.file) {
             if (record.fileUrl) deleteFromMemory(record.fileUrl);
-            const result = saveToMemory(req.file.buffer, 'certifications', req.file.originalname, req.user.employeeId);
+            const result = saveToMemory(req.file.buffer, 'certifications', req.file.originalname, req.user.employeeId, req.user.department);
             req.body.fileUrl = result.url;
         }
 

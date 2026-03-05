@@ -67,7 +67,7 @@ exports.addPublication = async (req, res, next) => {
         req.body.facultyId = req.params.facultyId;
 
         if (req.file) {
-            const result = saveToMemory(req.file.buffer, 'publications', req.file.originalname, req.user.employeeId);
+            const result = saveToMemory(req.file.buffer, 'publications', req.file.originalname, req.user.employeeId, req.user.department);
             req.body.fileUrl = result.url;
         }
 
@@ -108,7 +108,7 @@ exports.updatePublication = async (req, res, next) => {
 
         if (req.file) {
             if (record.fileUrl) deleteFromMemory(record.fileUrl);
-            const result = saveToMemory(req.file.buffer, 'publications', req.file.originalname, req.user.employeeId);
+            const result = saveToMemory(req.file.buffer, 'publications', req.file.originalname, req.user.employeeId, req.user.department);
             req.body.fileUrl = result.url;
         }
 

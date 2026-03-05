@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
     LayoutDashboard, Users, UserPlus, ClipboardList,
-    Menu, X, LogOut, GraduationCap, ChevronLeft, Home, Compass, ArrowRightLeft, Lock, Settings
+    Menu, X, LogOut, GraduationCap, ChevronLeft, Home, Compass, ArrowRightLeft, Lock
 } from 'lucide-react';
 import collegeLogo from '../../assets/rcee.png';
 import GlobalSearch from '../ui/GlobalSearch';
@@ -27,11 +27,10 @@ const Sidebar = () => {
         { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'hod'] },
         { to: '/explore', label: 'Explore', icon: Compass, roles: ['admin', 'hod'] },
         { to: '/faculty', label: 'Faculty', icon: Users, roles: ['admin', 'hod'] },
-        { to: '/compare', label: 'Compare', icon: ArrowRightLeft, roles: ['admin', 'hod'] },
+        { to: '/compare', label: 'Compare Depts', icon: ArrowRightLeft, roles: ['admin'] },
         { to: '/create-account', label: 'Create Account', icon: UserPlus, roles: ['admin', 'hod'] },
         { to: '/my-profile', label: 'My Profile', icon: GraduationCap, roles: ['admin', 'faculty', 'hod'] },
         { to: '/activity-logs', label: 'Activity Logs', icon: ClipboardList, roles: ['admin'] },
-        { to: '/score-settings', label: 'Score Settings', icon: Settings, roles: ['admin'] },
     ];
 
     const filteredNav = navItems.filter((item) => item.roles.includes(user?.role));

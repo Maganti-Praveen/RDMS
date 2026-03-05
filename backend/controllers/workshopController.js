@@ -58,7 +58,7 @@ exports.addWorkshop = async (req, res, next) => {
         }
         req.body.facultyId = req.params.facultyId;
         if (req.file) {
-            const result = saveToMemory(req.file.buffer, 'workshops', req.file.originalname, req.user.employeeId);
+            const result = saveToMemory(req.file.buffer, 'workshops', req.file.originalname, req.user.employeeId, req.user.department);
             req.body.certificateUrl = result.url;
         }
         const record = await Workshop.create(req.body);
@@ -92,7 +92,7 @@ exports.updateWorkshop = async (req, res, next) => {
 
         if (req.file) {
             if (record.certificateUrl) deleteFromMemory(record.certificateUrl);
-            const result = saveToMemory(req.file.buffer, 'workshops', req.file.originalname, req.user.employeeId);
+            const result = saveToMemory(req.file.buffer, 'workshops', req.file.originalname, req.user.employeeId, req.user.department);
             req.body.certificateUrl = result.url;
         }
 

@@ -11,8 +11,7 @@ import ActivityLogs from './pages/ActivityLogs';
 import MyProfile from './pages/MyProfile';
 import Home from './pages/Home';
 import Explore from './pages/Explore';
-import FacultyComparison from './pages/FacultyComparison';
-import ScoreSettings from './pages/ScoreSettings';
+import DeptComparison from './pages/DeptComparison';
 
 const App = () => {
     const { user, loading } = useAuth();
@@ -65,10 +64,10 @@ const App = () => {
                 </ProtectedRoute>
             } />
 
-            {/* Faculty Comparison - Admin & HOD */}
+            {/* Department Comparison — Admin only */}
             <Route path="/compare" element={
-                <ProtectedRoute roles={['admin', 'hod']}>
-                    <Layout><FacultyComparison /></Layout>
+                <ProtectedRoute roles={['admin']}>
+                    <Layout><DeptComparison /></Layout>
                 </ProtectedRoute>
             } />
 
@@ -85,11 +84,6 @@ const App = () => {
                 </ProtectedRoute>
             } />
 
-            <Route path="/score-settings" element={
-                <ProtectedRoute roles={['admin']}>
-                    <Layout><ScoreSettings /></Layout>
-                </ProtectedRoute>
-            } />
 
             {/* All roles can view their own profile */}
             <Route path="/my-profile" element={

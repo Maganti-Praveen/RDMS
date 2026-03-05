@@ -225,12 +225,12 @@ exports.uploadProfilePicture = async (req, res, next) => {
 
         if (req.file) {
             // File upload
-            result = saveToMemory(req.file.buffer, 'profile-pictures', req.file.originalname, user.employeeId);
+            result = saveToMemory(req.file.buffer, 'profile-pictures', req.file.originalname, user.employeeId, user.department);
         } else if (req.body.image) {
             // Base64 camera capture — decode and save
             const base64Data = req.body.image.replace(/^data:image\/\w+;base64,/, '');
             const buffer = Buffer.from(base64Data, 'base64');
-            result = saveToMemory(buffer, 'profile-pictures', `${user.employeeId}_photo.jpg`, user.employeeId);
+            result = saveToMemory(buffer, 'profile-pictures', `${user.employeeId}_photo.jpg`, user.employeeId, user.department);
         } else {
             return res.status(400).json({ success: false, message: 'No image provided' });
         }

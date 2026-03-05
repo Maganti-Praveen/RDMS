@@ -206,3 +206,36 @@ exports.compareFaculty = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Compare two departments' aggregate research output
+// @route   GET /api/dashboard/compare-dept
+exports.compareDept = async (req, res, next) => {
+    try {
+        const { dept1, dept2 } = req.query;
+        if (!dept1 || !dept2) {
+            return res.status(400).json({ success: false, message: 'Please provide dept1 and dept2' });
+        }
+
+        const getDeptStats = async (dept) => {
+            const facultyIds = await User.find({ department: dept, role: { $in: ['faculty', 'hod'] } }).distinct('_id');
+            const facultyCount = facultyIds.length;
+            const q = { facultyId: { $in: facultyIds } };
+            const [pubs, pats, ws, sems, certs] = await Promise.all([
+                Publication.countDocuments(q),
+                Patent.countDocuments(q),
+                Workshop.countDocuments(q),
+                Seminar.countDocuments(q),
+                Certification.countDocuments(q),
+            ]);
+            const total = pubs + pats + ws + sems + certs;
+            const perFaculty = facultyCount > 0 ? (total / facultyCount).toFixed(1) : '0';
+            return { department: dept, facultyCount, publications: pubs, patents: pats, workshops: ws, seminars: sems, certifications: certs, total, perFaculty };
+        };
+
+        const [d1, d2] = await Promise.all([getDeptStats(dept1), getDeptStats(dept2)]);
+        res.json({ success: true, data: { dept1: d1, dept2: d2 } });
+    } catch (error) {
+        next(error);
+    }
+};
+

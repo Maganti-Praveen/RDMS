@@ -33,11 +33,18 @@ const upload = multer({
 });
 
 // Save buffer to local memory folder
-// folder: subfolder name like 'publications', 'patents', etc.
-// empId: optional employee ID to prefix the filename (e.g. 'RCEE001')
+// folder:     category subfolder like 'publications', 'patents', etc.
+// empId:      optional employee ID prefix (e.g. 'RCEE001')
+// department: optional department name — creates memory/folder/DEPT/ subfolder
 // Returns: { url, filePath, fileName }
-const saveToMemory = (buffer, folder, originalname, empId = '') => {
-    const dir = path.join(MEMORY_DIR, folder);
+const saveToMemory = (buffer, folder, originalname, empId = '', department = '') => {
+    // Build path: memory/folder/DEPT  (or memory/folder if no dept)
+    const safeDept = department
+        ? department.toLowerCase().replace(/[^a-z0-9_-]/g, '_')
+        : '';
+    const dir = safeDept
+        ? path.join(MEMORY_DIR, folder, safeDept)
+        : path.join(MEMORY_DIR, folder);
     ensureDir(dir);
 
     // Sanitise the original filename
@@ -53,15 +60,16 @@ const saveToMemory = (buffer, folder, originalname, empId = '') => {
 
     fs.writeFileSync(filePath, buffer);
 
-    // Return the URL path (served via /uploads/folder/filename)
-    const url = `/uploads/${folder}/${uniqueName}`;
+    // Return the URL path (served via /uploads/folder/[dept/]filename)
+    const urlPath = safeDept ? `/uploads/${folder}/${safeDept}/${uniqueName}` : `/uploads/${folder}/${uniqueName}`;
 
     return {
-        url,
+        url: urlPath,
         filePath,
         fileName: uniqueName,
     };
 };
+
 
 
 // Delete file from memory
