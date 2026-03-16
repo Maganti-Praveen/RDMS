@@ -49,7 +49,7 @@ const Login = () => {
                     </h1>
                     <div className="w-16 h-1 bg-accent-500 mx-auto mb-4 rounded-full" />
                     <p className="text-primary-200 text-lg leading-relaxed max-w-md">
-                        Research &amp; Department Management System
+                        RCEE RIMS — Research Information Management System
                     </p>
                     <p className="text-primary-300/80 text-sm mt-4 max-w-sm mx-auto">
                         Digitally manage faculty research profiles, publications, patents, and institutional reports.
@@ -71,7 +71,7 @@ const Login = () => {
                         <h1 className="text-lg font-bold text-primary-800 text-center">
                             Ramachandra College of Engineering
                         </h1>
-                        <p className="text-xs text-dark-400">RDMS Portal</p>
+                        <p className="text-xs text-dark-400">RCEE RIMS Portal</p>
                     </div>
 
                     <h2 className="text-2xl font-bold text-primary-800 mb-1">Welcome back</h2>
@@ -98,11 +98,11 @@ const Login = () => {
                                     value={email}
                                     onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); }}
                                     className={`input-field pl-9 ${errorMsg && errorMsg.toLowerCase().includes('email') ? 'border-red-400' : ''}`}
-                                    placeholder="yourname@rcee.ac.in"
+                                    placeholder="Enter your email"
                                     required
                                 />
                             </div>
-                            <p className="text-xs text-dark-400 mt-1">Use your @rcee.ac.in email</p>
+
                         </div>
 
                         <div>
@@ -127,6 +127,11 @@ const Login = () => {
                                 >
                                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                 </button>
+                            </div>
+                            <div className="text-right mt-1.5">
+                                <a href="/forgot-password" className="text-xs text-primary-600 hover:text-primary-800 font-medium">
+                                    Forgot Password?
+                                </a>
                             </div>
                         </div>
 

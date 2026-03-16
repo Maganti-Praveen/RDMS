@@ -7,9 +7,11 @@ const cors = require('cors');
 const path = require('path');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const autoSeedAcademicYears = require('./utils/autoSeedAcademicYears');
 
-// Connect to database
-connectDB();
+// Connect to database, then auto-ensure current academic years exist
+connectDB().then(() => autoSeedAcademicYears());
+
 
 const app = express();
 

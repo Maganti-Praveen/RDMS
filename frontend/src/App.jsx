@@ -12,6 +12,8 @@ import MyProfile from './pages/MyProfile';
 import Home from './pages/Home';
 import Explore from './pages/Explore';
 import DeptComparison from './pages/DeptComparison';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 const App = () => {
     const { user, loading } = useAuth();
@@ -30,6 +32,8 @@ const App = () => {
     return (
         <Routes>
             <Route path="/login" element={user ? <Navigate to={user.role === 'faculty' ? '/home' : '/dashboard'} /> : <Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Faculty Home */}
             <Route path="/home" element={

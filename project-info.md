@@ -1,215 +1,180 @@
-# RDMS – Project Info & Features Documentation
+# RCEE RIMS — Project Info & Features Documentation
 
-> **Research & Department Management System**  
-> Version 1.1.0 | Built with MERN Stack
+> **RCEE Research Information Management System**  
+> Ramachandra College of Engineering, Eluru  
+> Version 2.0.0 | MERN Stack
 
 ---
 
 ## 📋 Project Overview
 
-RDMS is a comprehensive web application designed for educational institutions to digitally manage faculty research profiles, track publications, patents, workshops, seminars, certifications, and generate NAAC-compliant institutional reports. The system supports three user roles — **Admin**, **HOD**, and **Faculty** — each with fine-grained access control.
+RCEE RIMS is a full-stack web application built for Ramachandra College of Engineering to digitally manage faculty research output. It allows faculty to maintain their research profiles (publications, patents, workshops, seminars, certifications, education) and enables Admin/HOD to monitor, compare, export and broadcast announcements to all departments.
+
+The system enforces strict **role-based access control** — faculty can only edit their own data, HODs manage their own department, and Admins have global visibility.
 
 ---
 
 ## 🏛️ Architecture
 
 ```
-┌──────────────┐     HTTP/REST      ┌──────────────┐     Mongoose     ┌──────────────┐
-│   React SPA  │ ◄─────────────────► │  Express API │ ◄──────────────► │  MongoDB     │
-│   (Vite)     │    JWT Auth         │  (Node.js)   │                  │  (Atlas)     │
-└──────────────┘                     └──────┬───────┘                  └──────────────┘
-                                            │
-                                     Multer + Local Disk
-                                            │
-                                     ┌──────▼───────┐
-                                     │  memory/      │
-                                     │  uploads/     │
-                                     │  (Local FS)   │
-                                     └──────────────┘
+┌──────────────┐    HTTP/REST (JSON)    ┌──────────────┐    Mongoose ODM    ┌──────────────┐
+│  React SPA   │ ◄────────────────────► │  Express API │ ◄────────────────► │  MongoDB     │
+│  (Vite)      │    JWT Auth Header     │  (Node.js)   │                    │  (Atlas)     │
+└──────────────┘                        └──────┬───────┘                    └──────────────┘
+                                               │
+                             ┌─────────────────┼──────────────────┐
+                             │                 │                  │
+                      Multer Upload      Nodemailer           PDFKit/xlsx
+                             │            Gmail SMTP           Exports
+                      ┌──────▼──────┐
+                      │   memory/   │
+                      │ publications│
+                      │ /2026/cse/  │
+                      │  patents/   │
+                      │ /2026/ece/  │
+                      └─────────────┘
 ```
-
-- **Frontend**: React 18 with Vite, Tailwind CSS for styling
-- **Backend**: Express.js REST API with JWT authentication
-- **Database**: MongoDB Atlas with Mongoose ODM (8+ collections)
-- **File Storage**: Local disk (`memory/uploads/`) via Multer memory storage
-- **Exports**: xlsx (SheetJS) for spreadsheets, PDFKit for PDF generation
 
 ---
 
-## ✅ Features Implemented
+## ✅ Features (Current — v2.0.0)
 
 ### 1. Authentication & Authorization
 
-- [x] JWT-based login with bcrypt password hashing
-- [x] Token stored in localStorage, auto-attached via Axios interceptor
-- [x] Auto-logout on 401 (expired/invalid token)
-- [x] Role-based route protection (Admin, HOD, Faculty)
-- [x] Password field hidden with `select: false` in schema
-- [x] Admin/HOD-only user registration
+- [x] JWT-based login (token stored in localStorage)
+- [x] Auto-logout on token expiry (401 interceptor in Axios)
+- [x] Role-based route protection: Admin, HOD, Faculty
+- [x] Password hashing with bcryptjs (salt rounds: 10)
+- [x] **Forgot Password** — email reset link (expires 15 min, SHA-256 hashed token in DB)
+- [x] **Distinct login error messages** — "no account found" vs "wrong password"
+- [x] Login accepts any valid email (no domain restriction enforced)
 
 ### 2. User Management
 
-- [x] Admin/HOD can create Faculty and HOD accounts (single form)
-- [x] **Bulk Upload** — create multiple accounts from CSV/Excel (`.csv`, `.xlsx`, `.xls`)
-  - Handles Excel serial date numbers automatically (`cellDates: true` + `parseDate()` helper)
-  - Skips duplicates gracefully, reports errors per row
-  - `sample_bulk_upload.csv` provided in project root
-- [x] **Password Reset** — Admin/HOD can reset any faculty password via modal
-- [x] Full user fields: name, employeeId, email, role, department, mobileNumber, domain, officialEmail, joiningDate, address
-- [x] Profile picture upload (file or live camera capture), stored locally
+- [x] Admin/HOD create faculty accounts (single form)
+- [x] **Bulk Upload** — CSV/Excel → batch create accounts; skips duplicates, error per row
+- [x] **Welcome Email** — auto-sent on account creation with login credentials
+- [x] Profile: name, employeeId, email (official), personalEmail, department, mobile, domain, joining date, address, ORCID, Google Scholar, Scopus, Vidhwan, ResearchGate, LinkedIn
+- [x] **Profile picture** — file upload or live camera capture
 - [x] Admin/HOD can delete users; bulk delete with checkboxes
-- [x] Faculty can update their own profile
-- [x] HOD restricted to viewing/managing own department
-- [x] Departments: CSE, ECE, EEE, MECH, CIVIL, AIML, AIDS, CYBER, IOT, MBA, BBA
+- [x] **Password Reset by Admin/HOD** via modal
+- [x] Faculty can only edit own profile (strict ownership)
+- [x] HOD restricted to own department
 
 ### 3. Dashboard & Analytics
 
-- [x] 6 statistics cards: Faculty, Publications, Patents, Workshops, Seminars, Certifications (real totals)
-- [x] Department-wise research output bar chart (Recharts)
-- [x] Filter by academic year (2020-21 through 2025-26)
-- [x] Admin can filter by department; HOD auto-scoped to their department
-- [x] Real-time data from aggregated database queries
+- [x] 6 stat cards: Faculty, Publications, Patents, Workshops, Seminars, Certifications
+- [x] Department-wise bar chart (Recharts)
+- [x] Academic year filter (auto-generated from 2020-21 → current+next)
+- [x] Admin can filter by department; HOD auto-scoped
+- [x] **Department Comparison** (Admin only) — radar chart + bar chart + stat table for any 2 departments
 
 ### 4. Faculty Profile Page
 
-- [x] Profile header with avatar/photo, name, department, employee ID, role badge
-- [x] Profile picture upload (file or camera), stored in `memory/uploads/`
+- [x] Profile header: avatar, name, department, employeeId, role badge
 - [x] 7 accordion sections: Basic Info, Education, Certifications, Publications, Patents, Workshops, Seminars
-- [x] Tabular display with CRUD modals (Add / Edit / Delete) for all research entries
-- [x] File upload for certifications, publications, patents, workshops (served via `/uploads/`)
-- [x] External link to uploaded files (opens in new tab)
-- [x] Academic year filter across all sections
-- [x] PDF download of complete faculty profile
-- [x] Role-based edit permissions (self, admin, hod)
+- [x] CRUD modals (Add/Edit/Delete) for all sections with file upload
+- [x] Academic year filter on all research sections
+- [x] **PDF download** — full profile with RCEE logo, profile photo, research tables
+- [x] **Strict ownership** — faculty can only edit own entries; no admin/HOD bypass
 
-### 5. Data Collections (6 Research Types)
+### 5. Research Data Collections (6 types)
 
-#### Education
-- Fields: degree, university, specialization, year
+| Category | Key Fields |
+|---|---|
+| **Education** | degree, university, specialization, year |
+| **Certifications** | title, issuedBy, date, credentialId, fileUrl |
+| **Publications** | title, journalName, ISSN, DOI, publicationType, indexedType, academicYear, fileUrl |
+| **Patents** | title, patentNumber, status (Filed/Published/Granted), filingDate, grantDate, academicYear, fileUrl |
+| **Workshops** | title, institution, role (Organized/Attended), date, academicYear, certificateUrl |
+| **Seminars** | topic, institution, role, date, academicYear |
 
-#### Certifications
-- Fields: title, issuedBy, date, credentialId, fileUrl (local)
+### 6. File Storage — Year + Department Based
 
-#### Publications
-- Fields: title, journalName, issn, volume, doi, publicationType, indexedType, academicYear, publicationDate, fileUrl
-- Types: Journal, Conference, Book, Chapter
-- Indexed: SCI, Scopus, SEI, UGC, Other
-
-#### Patents
-- Fields: title, patentNumber, status, filingDate, grantDate, academicYear, fileUrl
-- Status: Filed, Published, Granted, Utility
-
-#### Workshops
-- Fields: title, institution, role, date, academicYear, certificateUrl
-- Role: Organized, Attended
-
-#### Seminars
-- Fields: topic, institution, role, date, academicYear
-
-### 6. Export Features
-
-- [x] **Excel Export** — Multi-sheet workbook via SheetJS
-  - Summary, Publications, Patents sheets
-  - Filterable by department; Admin/HOD access only
-- [x] **PDF Export** — Individual faculty profile via PDFKit
-  - College letterhead with RCEE logo (wider horizontal fit)
-  - Profile photo (loaded from local `memory/uploads/`, fallback to initial-letter circle)
-  - Name block with department, role, employee ID and email
-  - Stats strip (count of each research category)
-  - All 6 research sections in formatted tables (alternating row colours)
-  - Dedicated full-width address row (wraps for long addresses)
-  - Page numbers in footer; auto page-break
-- [x] **NAAC Report Export** — Department-wise formatted Excel
-
-### 7. Notification System
-
-- [x] **Send Notifications** — Admin/HOD can broadcast messages from the Explore page
-  - Target options: All users, specific department, or individual users
-  - HOD can only send within own department
-  - Category: `General` (stored in Notification model)
-- [x] In-app notification bell with unread count
-- [x] Mark as read / mark all as read
-- [x] Notification categories: Publication, Patent, Workshop, Seminar, Certification, User, General
-
-### 8. Activity Logging
-
-- [x] All Add, Update, Delete operations automatically logged
-- [x] Logs: userId, role, action, category, targetId, details, timestamp
-- [x] Admin-only Activity Logs page with filtering (action, category, date range)
-- [x] Pagination (20 per page)
-
-### 9. Scoring & Rankings
-
-- [x] Configurable scoring weights per research category
-- [x] Auto-computed faculty score ranking (optimised with `Promise.all`, no N+1 queries)
-- [x] Department and academic year filter on leaderboard
-
-### 10. UI/UX Features
-
-- [x] Responsive layout with collapsible sidebar
-- [x] Mobile-first design with hamburger menu
-- [x] Dark sidebar with gradient branding
-- [x] Split-screen login page
-- [x] Toast notifications via `react-hot-toast`
-- [x] Loading spinners on all data fetches
-- [x] Confirmation dialogs for destructive actions
-- [x] Empty state messages for all lists
-- [x] Role-based navigation menu
-
-### 11. Security
-
-- [x] JWT authentication middleware on all protected routes
-- [x] Role-based authorization middleware (`authorize()`)
-- [x] Password hashing with bcrypt (salt rounds: 10)
-- [x] Password hidden in API responses (`select: false`)
-- [x] HOD department scoping in all controllers
-- [x] Faculty restricted to own profile updates
-- [x] File type validation (PDF, JPG, JPEG, PNG only)
-- [x] File size limit (10 MB, configurable via `MAX_FILE_SIZE` env var)
-- [x] CORS enabled
-- [x] Environment variables for all secrets
-
-### 12. Local File Storage
-
-- [x] Multer memory storage — files buffered in memory, written to disk in controller
-- [x] Storage path: `<root>/memory/uploads/<category>/` (e.g. `memory/uploads/publications/`)
-- [x] Files served statically via `/uploads/` Express route
-- [x] Unique filenames: `timestamp_random_originalname`
-- [x] Old file deleted automatically on record update or delete
-- [x] PDF export reads profile pictures directly from disk path (no HTTP call)
-
----
-
-## 📊 Database Schema Overview
-
-| Collection | Key Fields | References |
-|---|---|---|
-| Users | name, employeeId, email, password, role, department, profilePicture | — |
-| Education | degree, university, specialization, year | facultyId → Users |
-| Certifications | title, issuedBy, date, credentialId, fileUrl | facultyId → Users |
-| Publications | title, journalName, publicationType, indexedType, academicYear, fileUrl | facultyId → Users |
-| Patents | title, patentNumber, status, filingDate, academicYear, fileUrl | facultyId → Users |
-| Workshops | title, institution, role, date, academicYear, certificateUrl | facultyId → Users |
-| Seminars | topic, institution, role, date, academicYear | facultyId → Users |
-| ActivityLogs | userId, role, action, category, targetId, details, timestamp | userId → Users |
-| Notifications | userId, message, type, category, link, read | userId → Users |
-| ScoreConfig | category, weight, description | — |
-
----
-
-## 🚀 Quick Start
-
-Double-click **`start.bat`** in project root — starts both servers and opens browser.
-
-Or manually:
-
-```bash
-# Terminal 1 — Backend
-cd backend && npm install && npm run dev    # → http://localhost:5000
-
-# Terminal 2 — Frontend
-cd frontend && npm install && npm run dev  # → http://localhost:5173
 ```
+memory/
+├── publications/YEAR/DEPT/EMPID_timestamp_random_filename.pdf
+├── patents/YEAR/DEPT/...
+├── workshops/YEAR/DEPT/...
+├── certifications/YEAR/DEPT/...
+└── profile-pictures/YEAR/DEPT/...
+```
+
+- Folders auto-created on first upload (`fs.mkdirSync recursive`)
+- Year derived from upload date (`new Date().getFullYear()`)
+- New year folders created automatically without any code change
+- Files served via Express static: `/uploads/category/year/dept/file`
+
+### 7. Email Service (Nodemailer + Gmail)
+
+| Email Type | Trigger | Details |
+|---|---|---|
+| **Welcome** | New account created | Name, email, dept, role, password, login link |
+| **Password Reset** | Forgot password request | Secure link with 15-min expiry |
+| **Broadcast** | Admin sends notification with email toggle | Sent via BCC to all recipients |
+
+- Gmail SMTP (port 465, SSL) with App Password
+- RCEE logo embedded as **CID inline attachment** (shows in Gmail/Outlook)
+- **Auto-detected LAN IP** for reset links — works on any network
+
+### 8. Notification System
+
+- [x] Admin/HOD send in-app broadcast (target: all / department)
+- [x] **Email toggle** — optionally send email alongside in-app notification
+- [x] In-app notification bell with unread count badge
+- [x] Mark as read / mark all as read
+
+### 9. Export Features
+
+- [x] **PDF** (per faculty) — PDFKit: RCEE letterhead, profile photo, research tables, page numbers
+- [x] **Excel** — multi-sheet workbook (Summary, Publications, Patents)
+- [x] **NAAC Report** — department-wise formatted Excel
+
+### 10. Rankings (Count-Based)
+
+- Rankings based on **total upload count** across all research categories (not score points)
+- College Top 5 + Department Top 3 leaderboard
+- Optimized with `Promise.all` — no N+1 queries
+
+### 11. Academic Year Auto-Management
+
+- `autoSeedAcademicYears.js` runs on every server startup
+- **First run (empty DB):** seeds 2020-21 → current year + next year
+- **Subsequent runs:** only adds new years if missing
+- No manual action ever needed when a new academic year begins
+
+### 12. Activity Logging
+
+- All Add, Update, Delete actions auto-logged
+- Fields: userId, role, action, category, targetId, details, timestamp
+- Admin-only Activity Logs page with filter (action, category, date range)
+
+### 13. Security
+
+- JWT on all protected routes; role-based `authorize()` middleware
+- Faculty strict self-ownership for all uploads and data edits
+- HOD department-scoped in all controllers
+- File type validation (PDF, JPG, JPEG, PNG)
+- File size limit: 10 MB (env configurable)
+- CORS permissive for LAN access (restrict in production)
+- Reset tokens stored as SHA-256 hash — raw token only in email link
+
+---
+
+## 📊 Database Collections
+
+| Collection | Key Fields |
+|---|---|
+| **Users** | name, employeeId, email, password (hashed), role, department, profilePicture, personalEmail, researchGateUrl, linkedinUrl, resetPasswordToken, resetPasswordExpire |
+| **Education** | degree, university, specialization, year, facultyId |
+| **Certifications** | title, issuedBy, date, credentialId, fileUrl, facultyId |
+| **Publications** | title, journalName, issn, doi, publicationType, indexedType, academicYear, fileUrl, facultyId |
+| **Patents** | title, patentNumber, status, filingDate, grantDate, academicYear, fileUrl, facultyId |
+| **Workshops** | title, institution, role, date, academicYear, certificateUrl, facultyId |
+| **Seminars** | topic, institution, role, date, academicYear, facultyId |
+| **AcademicYears** | label (e.g. "2025-26"), order, isActive |
+| **ActivityLogs** | userId, role, action, category, targetId, details, timestamp |
+| **Notifications** | userId, message, type, category, link, read |
 
 ---
 
@@ -218,53 +183,42 @@ cd frontend && npm install && npm run dev  # → http://localhost:5173
 `backend/.env`:
 
 ```env
-NODE_ENV=development
 PORT=5000
-MONGO_URI=your_mongodb_atlas_connection_string
-JWT_SECRET=your_jwt_secret
-JWT_EXPIRE=30d
+MONGO_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/dbname
+JWT_SECRET=your_secret_key
+JWT_EXPIRE=7d
 MAX_FILE_SIZE=10485760
+EMAIL_USER=rcee.rims@gmail.com
+EMAIL_PASS=your_16char_app_password
+VITE_FRONTEND_PORT=5173
 ```
 
----
+`frontend/.env`:
 
-## 📊 Bulk Upload CSV Format
-
-File: `sample_bulk_upload.csv` (project root)
-
-| Column | Required | Notes |
-|---|:---:|---|
-| Name | ✅ | Full name |
-| EmployeeId | ✅ | Unique (e.g. RCEE001) |
-| Email | ✅ | Must end with `@rcee.ac.in` |
-| Password | ✅ | Min 6 characters |
-| Department | ✅ | e.g. CSE, ECE, AIML |
-| Role | — | `faculty` (default) or `hod` |
-| MobileNumber | — | 10 digits |
-| Domain | — | Research specialisation |
-| OfficialEmail | — | Alternate college email |
-| JoiningDate | — | `YYYY-MM-DD` (ISO format) |
-| Address | — | Avoid commas in CSV mode |
-
-> **Note:** If opening the CSV in Excel before uploading, Excel may convert dates to serial numbers. The backend handles this automatically.
+```env
+VITE_API_URL=/api
+VITE_PORT=5173
+```
 
 ---
 
 ## 🔢 Version History
 
-| Version | Date | Changes |
+| Version | Date | Key Changes |
 |---|---|---|
-| 1.0.0 | Feb 2026 | Initial release: full CRUD, dashboard, exports, activity logs, profile picture with camera capture |
-| 1.1.0 | Mar 2026 | Password reset (Admin/HOD), broadcast notifications from Explore page, professional PDF redesign (logo, profile photo, address fix, no emoji), bulk upload Excel serial date fix, `start.bat` one-click launcher, `My Profile` route fix for admin, rankings N+1 query fix |
+| 1.0.0 | Feb 2026 | Initial release: CRUD, dashboard, exports, activity logs, profile picture |
+| 1.1.0 | Feb 2026 | Password reset (Admin/HOD), notifications, PDF redesign, bulk upload, start.bat |
+| 2.0.0 | Mar 2026 | Email service (welcome + reset + broadcast), dept+year file storage, dept comparison, count-based rankings, auto academic years, personal email field, ResearchGate/LinkedIn, LAN access, login error messages, RCEE RIMS rebrand |
 
 ---
 
 ## 👨‍💻 Developer Notes
 
-- Backend uses **separate collections** for each research type (not embedded) for scalability
-- File storage is **local disk** (`memory/uploads/`) — served via Express static middleware
-- `memory/` folder should be **gitignored** (contains uploaded files, not source code)
-- Academic years are hardcoded as `['2020-21' ... '2025-26']` — extend in frontend components as needed
-- HOD department scoping is enforced at the **controller level** for flexibility
-- Activity logging is called explicitly in controllers (not Mongoose hooks) for full control
-- PDF export uses **absolute x/y positioning** for all text — prevents layout drift across PDFKit versions
+- Backend uses **separate MongoDB collections** per research type (not embedded) for scalability
+- File storage is **local disk** — served via Express static `/uploads/`
+- **`memory/` folder is gitignored** — contains uploaded files, not source
+- Academic years auto-seeded by `utils/autoSeedAcademicYears.js` on every startup
+- PDF export reads profile pictures directly from disk path (no HTTP call needed)
+- HOD department scoping enforced at **controller level** on every query
+- Activity logging called explicitly in controllers (not Mongoose hooks) for control
+- Email uses **CID inline attachment** for logo — works in Gmail/Outlook/mobile

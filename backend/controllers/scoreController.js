@@ -1,4 +1,3 @@
-const ScoreConfig = require('../models/ScoreConfig');
 const Publication = require('../models/Publication');
 const Patent = require('../models/Patent');
 const Workshop = require('../models/Workshop');
@@ -6,17 +5,6 @@ const Seminar = require('../models/Seminar');
 const Certification = require('../models/Certification');
 const Education = require('../models/Education');
 const User = require('../models/User');
-
-// @desc    Get score config (kept for backward compat — returns empty)
-// @route   GET /api/scores/config
-exports.getScoreConfig = async (req, res) => {
-    res.json({ success: true, data: [] });
-};
-
-// @desc    Update score config (no-op)
-exports.updateScoreConfig = async (req, res) => {
-    res.json({ success: true, data: {} });
-};
 
 // @desc    Get rankings ranked by total research upload count
 // @route   GET /api/scores/rankings
@@ -45,23 +33,23 @@ exports.getRankings = async (req, res, next) => {
             return acc;
         }, {});
 
-        const pubCount = countByFaculty(allPubs);
-        const patCount = countByFaculty(allPatents);
-        const wsCount = countByFaculty(allWorkshops);
-        const semCount = countByFaculty(allSeminars);
+        const pubCount  = countByFaculty(allPubs);
+        const patCount  = countByFaculty(allPatents);
+        const wsCount   = countByFaculty(allWorkshops);
+        const semCount  = countByFaculty(allSeminars);
         const certCount = countByFaculty(allCerts);
-        const eduCount = countByFaculty(allEdu);
+        const eduCount  = countByFaculty(allEdu);
 
         // Compute total uploads per faculty
         const ranked = faculty.map(f => {
             const id = f._id.toString();
             const counts = {
-                publications: pubCount[id] || 0,
-                patents: patCount[id] || 0,
-                workshops: wsCount[id] || 0,
-                seminars: semCount[id] || 0,
+                publications:   pubCount[id]  || 0,
+                patents:        patCount[id]  || 0,
+                workshops:      wsCount[id]   || 0,
+                seminars:       semCount[id]  || 0,
                 certifications: certCount[id] || 0,
-                education: eduCount[id] || 0,
+                education:      eduCount[id]  || 0,
             };
             const total = Object.values(counts).reduce((a, b) => a + b, 0);
             return { ...f, score: total, counts };
@@ -89,7 +77,7 @@ exports.getRankings = async (req, res, next) => {
     }
 };
 
-// @desc    Get count-based "score" for a specific faculty
+// @desc    Get count-based summary for a specific faculty
 // @route   GET /api/scores/faculty/:facultyId
 exports.getFacultyScore = async (req, res, next) => {
     try {
@@ -102,7 +90,10 @@ exports.getFacultyScore = async (req, res, next) => {
             Certification.countDocuments({ facultyId: id }),
             Education.countDocuments({ facultyId: id }),
         ]);
-        const counts = { publications: pubs, patents: pats, workshops: ws, seminars: sems, certifications: certs, education: edu };
+        const counts = {
+            publications: pubs, patents: pats, workshops: ws,
+            seminars: sems, certifications: certs, education: edu,
+        };
         const total = Object.values(counts).reduce((a, b) => a + b, 0);
         res.json({ success: true, data: { total, counts } });
     } catch (error) {

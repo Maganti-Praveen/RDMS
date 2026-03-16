@@ -125,8 +125,8 @@ const CreateAccount = () => {
                                 <input name="employeeId" value={form.employeeId} onChange={handleChange} className="input-field" required />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-dark-700 mb-1.5">Email * <span className="text-dark-400 font-normal">(@rcee.ac.in)</span></label>
-                                <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field" required placeholder="name@rcee.ac.in" pattern=".*@rcee\.ac\.in$" title="Must use @rcee.ac.in email" />
+                                <label className="block text-sm font-medium text-dark-700 mb-1.5">Official Email *</label>
+                                <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field" required placeholder="Enter email address" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-dark-700 mb-1.5">Password *</label>
@@ -165,7 +165,7 @@ const CreateAccount = () => {
                                 <input name="domain" value={form.domain} onChange={handleChange} className="input-field" placeholder="e.g., Machine Learning" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-dark-700 mb-1.5">Official Email</label>
+                                <label className="block text-sm font-medium text-dark-700 mb-1.5">Personal Email</label>
                                 <input name="officialEmail" type="email" value={form.officialEmail} onChange={handleChange} className="input-field" />
                             </div>
                             <div>

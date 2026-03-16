@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const { sendBroadcastEmail } = require('../utils/mailer');
 
 // @desc    Get my notifications
 // @route   GET /api/notifications
@@ -48,11 +49,11 @@ exports.createNotification = async (userId, message, category, link = '') => {
     }
 };
 
-// @desc    Admin/HOD sends a broadcast notification to users
+// @desc    Admin/HOD sends a broadcast notification (+ optional email) to users
 // @route   POST /api/notifications/send
 exports.sendBroadcast = async (req, res, next) => {
     try {
-        const { title, message, target, department, userIds } = req.body;
+        const { title, message, target, department, userIds, sendEmail } = req.body;
 
         if (!message || message.trim().length === 0) {
             return res.status(400).json({ success: false, message: 'Message is required' });
@@ -71,7 +72,7 @@ exports.sendBroadcast = async (req, res, next) => {
             query.department = req.user.department;
         }
 
-        const recipients = await User.find(query).select('_id').lean();
+        const recipients = await User.find(query).select('_id email name').lean();
 
         if (recipients.length === 0) {
             return res.status(400).json({ success: false, message: 'No recipients found' });
@@ -89,9 +90,16 @@ exports.sendBroadcast = async (req, res, next) => {
 
         await Notification.insertMany(notifications);
 
+        // Fire-and-forget email broadcast if requested
+        if (sendEmail) {
+            sendBroadcastEmail(recipients, title, message).catch(err =>
+                console.error('[Mailer] Broadcast email failed:', err.message)
+            );
+        }
+
         res.json({
             success: true,
-            message: `Notification sent to ${recipients.length} user(s)`,
+            message: `Notification sent to ${recipients.length} user(s)${sendEmail ? ' with email' : ''}`,
             count: recipients.length,
         });
     } catch (error) {

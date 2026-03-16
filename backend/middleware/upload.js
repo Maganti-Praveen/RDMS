@@ -35,16 +35,21 @@ const upload = multer({
 // Save buffer to local memory folder
 // folder:     category subfolder like 'publications', 'patents', etc.
 // empId:      optional employee ID prefix (e.g. 'RCEE001')
-// department: optional department name — creates memory/folder/DEPT/ subfolder
+// department: optional department name — creates memory/folder/YEAR/DEPT/ subfolder
 // Returns: { url, filePath, fileName }
 const saveToMemory = (buffer, folder, originalname, empId = '', department = '') => {
-    // Build path: memory/folder/DEPT  (or memory/folder if no dept)
+    // Current upload year
+    const year = new Date().getFullYear().toString();
+
+    // Sanitise dept name
     const safeDept = department
         ? department.toLowerCase().replace(/[^a-z0-9_-]/g, '_')
         : '';
+
+    // Build path: memory/folder/year/dept  (or memory/folder/year if no dept)
     const dir = safeDept
-        ? path.join(MEMORY_DIR, folder, safeDept)
-        : path.join(MEMORY_DIR, folder);
+        ? path.join(MEMORY_DIR, folder, year, safeDept)
+        : path.join(MEMORY_DIR, folder, year);
     ensureDir(dir);
 
     // Sanitise the original filename
@@ -53,15 +58,17 @@ const saveToMemory = (buffer, folder, originalname, empId = '', department = '')
         .replace(/[^a-zA-Z0-9_-]/g, '_')
         .substring(0, 50);
 
-    // Prefix with empId when available: EMPID_timestamp_random_basename.ext
+    // Prefix with empId: EMPID_timestamp_random_basename.ext
     const safeEmpId = empId ? `${empId.replace(/[^a-zA-Z0-9_-]/g, '_')}_` : '';
     const uniqueName = `${safeEmpId}${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${baseName}${ext}`;
     const filePath = path.join(dir, uniqueName);
 
     fs.writeFileSync(filePath, buffer);
 
-    // Return the URL path (served via /uploads/folder/[dept/]filename)
-    const urlPath = safeDept ? `/uploads/${folder}/${safeDept}/${uniqueName}` : `/uploads/${folder}/${uniqueName}`;
+    // URL: /uploads/folder/year/dept/filename  (or /uploads/folder/year/filename)
+    const urlPath = safeDept
+        ? `/uploads/${folder}/${year}/${safeDept}/${uniqueName}`
+        : `/uploads/${folder}/${year}/${uniqueName}`;
 
     return {
         url: urlPath,

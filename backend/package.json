@@ -1,7 +1,7 @@
 {
-  "name": "rdms-backend",
+  "name": "rcee-rims-backend",
   "version": "1.0.0",
-  "description": "Research & Department Management System - Backend API",
+  "description": "RCEE RIMS - RCEE Research Information Management System | Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -20,6 +20,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.0",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^8.0.2",
     "pdfkit": "^0.13.0",
     "xlsx": "^0.18.5"
   },

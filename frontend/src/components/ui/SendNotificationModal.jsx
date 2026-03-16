@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Send, Users, Building2, X, ChevronDown } from 'lucide-react';
+import { Bell, Send, Users, Building2, X, Mail } from 'lucide-react';
 import API from '../../api/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,7 @@ const SendNotificationModal = ({ onClose }) => {
     const [target, setTarget] = useState('all');
     const [department, setDepartment] = useState(user?.role === 'hod' ? user.department : '');
     const [departments, setDepartments] = useState([]);
+    const [sendEmail, setSendEmail] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -37,7 +38,7 @@ const SendNotificationModal = ({ onClose }) => {
 
         setLoading(true);
         try {
-            const payload = { title: title.trim(), message: message.trim(), target };
+            const payload = { title: title.trim(), message: message.trim(), target, sendEmail };
             if (target === 'department') payload.department = department;
 
             const { data } = await API.post('/notifications/send', payload);
@@ -142,6 +143,26 @@ const SendNotificationModal = ({ onClose }) => {
                         <p className="text-xs text-dark-400 mt-1 text-right">{message.length}/500</p>
                     </div>
 
+                    {/* Email Toggle */}
+                    <div className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all cursor-pointer ${sendEmail ? 'border-primary-500 bg-primary-50' : 'border-dark-200 bg-dark-50'}`}
+                        onClick={() => setSendEmail(!sendEmail)}>
+                        <div className="flex items-center gap-3">
+                            <div className={`p-1.5 rounded-lg ${sendEmail ? 'bg-primary-600 text-white' : 'bg-dark-200 text-dark-500'}`}>
+                                <Mail className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <p className={`text-sm font-medium ${sendEmail ? 'text-primary-700' : 'text-dark-600'}`}>
+                                    Also send via Email
+                                </p>
+                                <p className="text-xs text-dark-400">Delivers to recipients' email inbox</p>
+                            </div>
+                        </div>
+                        {/* Toggle switch */}
+                        <div className={`w-11 h-6 rounded-full transition-colors relative ${sendEmail ? 'bg-primary-600' : 'bg-dark-300'}`}>
+                            <div className={`w-4 h-4 bg-white rounded-full shadow absolute top-1 transition-transform ${sendEmail ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </div>
+                    </div>
+
                     {/* Preview */}
                     {(title || message) && (
                         <div className="p-3 bg-primary-50 border border-primary-100 rounded-xl">
@@ -170,7 +191,7 @@ const SendNotificationModal = ({ onClose }) => {
                                 ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 : <Send className="w-4 h-4" />
                             }
-                            Send Notification
+                            {sendEmail ? 'Send + Email' : 'Send Notification'}
                         </button>
                     </div>
                 </form>

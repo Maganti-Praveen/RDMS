@@ -12,7 +12,7 @@ frontend/dist/
 backend/dist/
 
 # Uploaded files (local disk storage)
-
+memory/
 
 # IDE
 .vscode/

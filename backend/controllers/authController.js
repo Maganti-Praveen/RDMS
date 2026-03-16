@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const logActivity = require('../utils/logActivity');
+const { sendWelcomeEmail, sendPasswordResetEmail } = require('../utils/mailer');
 
 // Generate JWT
 const generateToken = (id) => {
@@ -23,11 +25,6 @@ exports.register = async (req, res, next) => {
             if (department !== req.user.department) {
                 return res.status(403).json({ success: false, message: 'HOD can only create faculty in their own department' });
             }
-        }
-
-        // Validate email domain
-        if (!email.endsWith('@rcee.ac.in')) {
-            return res.status(400).json({ success: false, message: 'Only @rcee.ac.in email addresses are allowed' });
         }
 
         // Check if user exists
@@ -59,6 +56,11 @@ exports.register = async (req, res, next) => {
                 department: user.department,
             },
         });
+
+        // Send welcome email (fire-and-forget — does not block response)
+        sendWelcomeEmail(user, password).catch((err) =>
+            console.error('[Mailer] Welcome email failed:', err.message)
+        );
     } catch (error) {
         next(error);
     }
@@ -196,7 +198,7 @@ exports.login = async (req, res, next) => {
 
         const user = await User.findOne({ email }).select('+password');
         if (!user) {
-            return res.status(401).json({ success: false, message: 'No account found with this email. Please use your college email (@rcee.ac.in)' });
+            return res.status(401).json({ success: false, message: 'No account found with this email address.' });
         }
 
         const isMatch = await user.matchPassword(password);
@@ -258,6 +260,72 @@ exports.changePassword = async (req, res, next) => {
         await user.save();
 
         res.json({ success: true, message: 'Password changed successfully' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Forgot password — send reset link
+// @route   POST /api/auth/forgot-password  (public)
+exports.forgotPassword = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ success: false, message: 'Please provide your college email' });
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            // Generic message for security — don't reveal whether email exists
+            return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
+        }
+
+        const rawToken = user.getResetPasswordToken();
+        await user.save({ validateBeforeSave: false });
+
+        try {
+            await sendPasswordResetEmail(user, rawToken);
+            res.json({ success: true, message: 'Password reset email sent. Check your inbox.' });
+        } catch (emailErr) {
+            // Rollback token on email failure
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpire = undefined;
+            await user.save({ validateBeforeSave: false });
+            console.error('[Mailer] Reset email failed:', emailErr.message);
+            return res.status(500).json({ success: false, message: 'Email could not be sent. Please try again later.' });
+        }
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Reset password using token from email
+// @route   PUT /api/auth/reset-password  (public)
+exports.resetPassword = async (req, res, next) => {
+    try {
+        const { token, password } = req.body;
+        if (!token || !password) {
+            return res.status(400).json({ success: false, message: 'Token and new password are required' });
+        }
+        if (password.length < 6) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+        }
+
+        // Hash the raw token and find matching user
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+        const user = await User.findOne({
+            resetPasswordToken: hashedToken,
+            resetPasswordExpire: { $gt: Date.now() },
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'Reset link is invalid or has expired (15-minute limit).' });
+        }
+
+        user.password = password;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+        await user.save();
+
+        res.json({ success: true, message: 'Password reset successful. You can now log in.' });
     } catch (error) {
         next(error);
     }
