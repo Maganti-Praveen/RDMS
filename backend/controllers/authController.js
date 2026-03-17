@@ -193,12 +193,21 @@ exports.login = async (req, res, next) => {
         const { email, password } = req.body;
 
         if (!email || !password) {
-            return res.status(400).json({ success: false, message: 'Please provide email and password' });
+            return res.status(400).json({ success: false, message: 'Please provide your email / Employee ID and password' });
         }
 
-        const user = await User.findOne({ email }).select('+password');
+        // Auto-detect: if input contains '@' treat as email, otherwise as employeeId
+        const isEmail = email.includes('@');
+        const query = isEmail ? { email: email.toLowerCase().trim() } : { employeeId: email.trim() };
+
+        const user = await User.findOne(query).select('+password');
         if (!user) {
-            return res.status(401).json({ success: false, message: 'No account found with this email address.' });
+            return res.status(401).json({
+                success: false,
+                message: isEmail
+                    ? 'No account found with this email address.'
+                    : 'No account found with this Employee ID.',
+            });
         }
 
         const isMatch = await user.matchPassword(password);

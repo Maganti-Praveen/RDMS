@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Eye, EyeOff, AlertCircle, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Mail, Lock, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import collegeLogo from '../assets/rcee.png';
 
@@ -88,17 +88,17 @@ const Login = () => {
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
                             <label className="block text-sm font-medium text-dark-700 mb-1.5">
-                                Email Address
+                                Email or Employee ID
                             </label>
                             <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400 pointer-events-none" />
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400 pointer-events-none" />
                                 <input
                                     id="login-email"
-                                    type="email"
+                                    type="text"
                                     value={email}
                                     onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); }}
-                                    className={`input-field pl-9 ${errorMsg && errorMsg.toLowerCase().includes('email') ? 'border-red-400' : ''}`}
-                                    placeholder="Enter your email"
+                                    className={`input-field pl-9 ${errorMsg && (errorMsg.toLowerCase().includes('email') || errorMsg.toLowerCase().includes('employee')) ? 'border-red-400' : ''}`}
+                                    placeholder="Enter email or Employee ID"
                                     required
                                 />
                             </div>
